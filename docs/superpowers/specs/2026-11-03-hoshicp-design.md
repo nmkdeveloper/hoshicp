@@ -143,10 +143,17 @@ Competitive Programming (CP) requires speed, reliability, and precision. The exi
   - C/C++: `clangd`
   - Rust: `rust-analyzer`
   - Python: `pyright-langserver` / `pylsp`
-- Bridges JSON-RPC messages between CodeMirror frontend LSP client and the language server via stdio pipes.
+- Architecture: Spawns an ephemeral localhost WebSocket server (`127.0.0.1:<random_port>`) managed by Tokio that bridges standard `vscode-ws-jsonrpc` from CodeMirror 6 directly to the LSP binary's `stdin`/`stdout`. This avoids custom IPC framing latency and allows drop-in integration with standard CodeMirror LSP plugins.
 - Supports: Diagnostics (syntax errors/warnings displayed in editor gutter & underline), Auto-completion popup, Hover definitions, Format on save.
 
-### 5.6. UI & Theming Architecture
+### 5.6. Problem & Testcase Persistence Model
+- **Storage Strategy**:
+  - Solution-bound sidecar files (`<filename>.hoshicp.json` or `.cpe` compatibility mode) stored alongside the source code file. This guarantees testcases, custom limits, and problem URLs travel with the source code under git or file transfer.
+- **Competitive Companion Ingestion Flow**:
+  - User defines a configurable path pattern (default: `~/HoshiCP/{group}/{name}.{ext}`).
+  - When Competitive Companion emits a problem, HoshiCP applies the path template, creates the directory and file with the selected language template, generates the sidecar metadata/testcase file, and opens it directly in a new tab.
+
+### 5.7. UI & Theming Architecture
 - **Window Frame**:
   - Frameless window with custom titlebar supporting drag regions, minimize, maximize, close.
   - Integration with `tauri-plugin-window-state` and native vibration/Mica effects on Windows 11.
@@ -158,7 +165,7 @@ Competitive Programming (CP) requires speed, reliability, and precision. The exi
     - Dracula, Tokyo Night, Catppuccin Mocha.
   - Custom Background Image support with opacity, blur slider, and background sizing (Cover/Contain).
 
-### 5.7. Custom Windows Installer (`hoshicp-installer`)
+### 5.8. Custom Windows Installer (`hoshicp-installer`)
 - Standalone Rust binary built with a lightweight GUI (or embedded HTML WebView).
 - Embeds compressed HoshiCP application payload (via `include_bytes!` or separate archive).
 - Flow:
@@ -166,16 +173,21 @@ Competitive Programming (CP) requires speed, reliability, and precision. The exi
   2. Progress bar extracting files.
   3. Creates Desktop and Start Menu shortcuts (Windows Shell COM `IShellLinkW`).
   4. Creates uninstall registry entries in `Software\Microsoft\Windows\CurrentVersion\Uninstall\HoshiCP`.
-  5. Launches HoshiCP upon completion.
+  5. Supports `--silent` CLI flag for headless automated deployment and uninstaller hooks.
+  6. Launches HoshiCP upon completion.
 
-### 5.8. Multiplatform Build & CI/CD
+### 5.9. Multiplatform Build, Updater & CI/CD
+- **Self-Update Mechanism**:
+  - Uses `tauri-plugin-updater` v2 with Ed25519 signature verification against GitHub Releases `latest.json`.
+  - Windows in-app auto-update downloads the signed portable package and safely executes in-place binary swapping on restart. First-time installations use `HoshiCP-Setup.exe`.
 - GitHub Actions workflow (`.github/workflows/release.yml`):
   - Matrix: `windows-latest`, `macos-latest`, `ubuntu-22.04`.
   - Installs Rust, Node.js, WebKit2GTK (Linux).
   - Builds Tauri frontend & backend.
+  - Compiles `hoshicp-installer` on Windows runner.
   - Signs packages using `TAURI_SIGNING_PRIVATE_KEY`.
   - Packages:
-    - Windows: Custom Installer (`HoshiCP-Setup.exe`) + Portable Zip.
+    - Windows: Custom Installer (`HoshiCP-Setup.exe`) + Portable Zip (`HoshiCP-windows-x64.zip`).
     - macOS: DMG image (`HoshiCP.dmg`).
     - Linux: AppImage (`HoshiCP.AppImage`) + `.tar.gz`.
   - Generates `latest.json` updater manifest and creates GitHub Release.
