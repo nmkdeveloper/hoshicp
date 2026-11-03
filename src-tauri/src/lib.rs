@@ -2,6 +2,7 @@ pub mod checker;
 pub mod error;
 pub mod models;
 pub mod runner;
+pub mod server;
 pub mod storage;
 pub mod stress;
 
