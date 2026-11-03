@@ -88,4 +88,45 @@ describe('LSP Client Protocol & Mapping', () => {
     expect(mapped[0].from).toBeLessThanOrEqual(5);
     expect(mapped[0].to).toBeLessThanOrEqual(5);
   });
+
+  it('triggers onDiagnostics callback upon textDocument/publishDiagnostics notification', () => {
+    let receivedDiagnostics: any[] = [];
+    const client = new LspClient({
+      port: 12345,
+      languageId: 'cpp',
+      onDiagnostics: (diags) => {
+        receivedDiagnostics = diags;
+      },
+    });
+
+    const state = EditorState.create({ doc: 'int a = 10;' });
+    const mockView: any = { state };
+    client.setView(mockView);
+
+    // Simulate incoming publishDiagnostics message
+    const notification = JSON.stringify({
+      jsonrpc: '2.0',
+      method: 'textDocument/publishDiagnostics',
+      params: {
+        uri: client.documentUri,
+        diagnostics: [
+          {
+            range: {
+              start: { line: 0, character: 4 },
+              end: { line: 0, character: 5 },
+            },
+            severity: 1,
+            message: 'Unused variable a',
+          },
+        ],
+      },
+    });
+
+    (client as any).handleMessage(notification);
+
+    expect(receivedDiagnostics).toHaveLength(1);
+    expect(receivedDiagnostics[0].message).toBe('Unused variable a');
+    expect(receivedDiagnostics[0].from).toBe(4);
+    expect(receivedDiagnostics[0].to).toBe(5);
+  });
 });

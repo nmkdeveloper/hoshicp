@@ -15,7 +15,7 @@ import {
 } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
 import { autocompletion, completionKeymap, closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
-import { linter, lintKeymap } from '@codemirror/lint';
+import { linter, lintGutter, lintKeymap, setDiagnostics } from '@codemirror/lint';
 import { bracketMatching, foldGutter, foldKeymap, indentOnInput } from '@codemirror/language';
 import { cpp } from '@codemirror/lang-cpp';
 import { rust } from '@codemirror/lang-rust';
@@ -93,6 +93,10 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   const onChangeRef = useRef(onChange);
   onChangeRef.current = onChange;
 
+  // Track latest vimMode in ref to avoid stale closure in EditorView updateListener
+  const vimModeRef = useRef(vimMode);
+  vimModeRef.current = vimMode;
+
   // Setup CodeMirror instance
   useEffect(() => {
     if (!editorContainerRef.current) return;
@@ -100,6 +104,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     const baseExtensions: Extension[] = [
       lineNumbers(),
       highlightActiveLineGutter(),
+      lintGutter(),
       highlightSpecialChars(),
       history(),
       foldGutter(),
@@ -138,7 +143,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
         }
 
         // Query Vim mode if active
-        if (vimMode) {
+        if (vimModeRef.current) {
           try {
             const cm = getCM(update.view);
             if (cm?.state?.vim) {
@@ -219,6 +224,9 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     view.dispatch({
       effects: vimCompartment.reconfigure(vimMode ? vim() : []),
     });
+    if (!vimMode) {
+      setVimState({ mode: 'NORMAL', subMode: undefined, keyBuffer: undefined });
+    }
   }, [vimMode]);
 
   // Dynamic readOnly toggle
@@ -249,6 +257,11 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     const client = new LspClient({
       port: lspPort,
       languageId: language,
+      onDiagnostics: (diagnostics) => {
+        if (viewRef.current) {
+          viewRef.current.dispatch(setDiagnostics(viewRef.current.state, diagnostics));
+        }
+      },
     });
 
     lspClientRef.current = client;
