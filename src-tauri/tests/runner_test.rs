@@ -15,8 +15,12 @@ fn test_execute_echo_process() {
 
 #[test]
 fn test_execute_timeout_process() {
-    let sleep_bin = if cfg!(windows) { "powershell.exe" } else { "sleep" };
-    let res = execute_testcase(Path::new(sleep_bin), "Start-Sleep -Seconds 3", 500, 128);
+    let (sleep_bin, input) = if cfg!(windows) {
+        ("powershell.exe", "Start-Sleep -Seconds 3")
+    } else {
+        ("sh", "sleep 3")
+    };
+    let res = execute_testcase(Path::new(sleep_bin), input, 500, 128);
     assert_eq!(res.status, RunStatus::TimeLimitExceeded);
 }
 
@@ -63,6 +67,43 @@ fn test_compile_custom_cmd() {
     assert!(res.is_ok());
     let out = res.unwrap();
     assert!(out.exists());
+}
+
+#[test]
+fn test_compile_custom_cmd_with_file_placeholder() {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let src_file = temp_dir.path().join("input2.txt");
+    fs::write(&src_file, "sample data 2").unwrap();
+
+    let custom_cmd = if cfg!(windows) {
+        "copy /y \"{file}\" \"{output}\""
+    } else {
+        "cp \"{file}\" \"{output}\""
+    };
+
+    let res = compile_source(&src_file, "custom", Some(custom_cmd));
+    assert!(res.is_ok());
+    let out = res.unwrap();
+    assert!(out.exists());
+}
+
+#[test]
+fn test_compile_bare_path_custom_cmd() {
+    let bare_file = Path::new("test_bare_input.txt");
+    fs::write(bare_file, "bare data").unwrap();
+
+    let custom_cmd = if cfg!(windows) {
+        "copy /y \"{file}\" \"{output}\""
+    } else {
+        "cp \"{file}\" \"{output}\""
+    };
+
+    let res = compile_source(bare_file, "custom", Some(custom_cmd));
+    let _ = fs::remove_file(bare_file);
+    if let Ok(ref out) = res {
+        let _ = fs::remove_file(out);
+    }
+    assert!(res.is_ok());
 }
 
 #[test]

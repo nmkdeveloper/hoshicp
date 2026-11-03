@@ -48,6 +48,7 @@ pub fn compile_source(
 
     let parent_dir = source_path
         .parent()
+        .filter(|p| !p.as_os_str().is_empty())
         .unwrap_or_else(|| Path::new("."));
 
     let exe_name = if cfg!(windows) {
@@ -61,6 +62,7 @@ pub fn compile_source(
     if let Some(template) = custom_cmd {
         let cmd_str = template
             .replace("{source}", &source_path.to_string_lossy())
+            .replace("{file}", &source_path.to_string_lossy())
             .replace("{output}", &output_path.to_string_lossy());
 
         return run_shell_command(&cmd_str, parent_dir, &output_path);
