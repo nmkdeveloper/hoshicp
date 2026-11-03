@@ -1,0 +1,40 @@
+[package]
+name = "hoshicp-installer"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "hoshicp_installer"
+path = "src/lib.rs"
+
+[[bin]]
+name = "HoshiCP-Setup"
+path = "src/main.rs"
+
+[build-dependencies]
+zip = { version = "2.2", default-features = false, features = ["deflate"] }
+
+[dependencies]
+zip = { version = "2.2", default-features = false, features = ["deflate"] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.61", features = [
+    "Win32_Foundation",
+    "Win32_System_Diagnostics_ToolHelp",
+    "Win32_System_Threading",
+    "Win32_UI_WindowsAndMessaging",
+    "Win32_UI_Controls",
+    "Win32_Graphics_Gdi",
+    "Win32_System_LibraryLoader",
+    "Win32_UI_Shell",
+    "Win32_UI_Shell_Common",
+    "Win32_UI_Input_KeyboardAndMouse",
+    "Win32_System_Com",
+] }
+winreg = "0.56"
+mslnk = "0.1"
+
+[dev-dependencies]
+tempfile = "3"
