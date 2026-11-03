@@ -51,6 +51,18 @@ impl From<&str> for AppError {
     }
 }
 
+impl From<crate::formatter::FormatterError> for AppError {
+    fn from(err: crate::formatter::FormatterError) -> Self {
+        AppError::Generic(err.to_string())
+    }
+}
+
+impl From<crate::lsp::LspError> for AppError {
+    fn from(err: crate::lsp::LspError) -> Self {
+        AppError::Generic(err.to_string())
+    }
+}
+
 impl serde::Serialize for AppError {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
