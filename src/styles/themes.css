@@ -1,0 +1,122 @@
+/* HoshiCP Theme Definitions & Mica/Glassmorphic Utilities */
+
+:root,
+[data-theme='cute-hoshino'] {
+  --theme-bg: #16141f;
+  --theme-surface: rgba(26, 23, 38, 0.78);
+  --theme-surface-hover: rgba(38, 34, 56, 0.85);
+  --theme-border: rgba(255, 182, 193, 0.22);
+  --theme-border-focus: rgba(255, 112, 160, 0.6);
+  --theme-text: #f8fafc;
+  --theme-text-muted: #94a3b8;
+  --theme-accent: #ff70a0;
+  --theme-accent-hover: #ff8ab2;
+  --theme-secondary: #70a1ff;
+  --theme-header-bg: rgba(22, 20, 31, 0.85);
+  --theme-tab-active: rgba(255, 182, 193, 0.16);
+  --theme-mascot-opacity: 0.14;
+}
+
+[data-theme='classic-dark'] {
+  --theme-bg: #1e1e1e;
+  --theme-surface: rgba(30, 30, 30, 0.85);
+  --theme-surface-hover: rgba(45, 45, 45, 0.9);
+  --theme-border: #333333;
+  --theme-border-focus: #007acc;
+  --theme-text: #d4d4d4;
+  --theme-text-muted: #858585;
+  --theme-accent: #007acc;
+  --theme-accent-hover: #1f8ad2;
+  --theme-secondary: #4ec9b0;
+  --theme-header-bg: rgba(37, 37, 38, 0.9);
+  --theme-tab-active: rgba(255, 255, 255, 0.08);
+  --theme-mascot-opacity: 0;
+}
+
+[data-theme='classic-light'] {
+  --theme-bg: #f8fafc;
+  --theme-surface: rgba(255, 255, 255, 0.88);
+  --theme-surface-hover: rgba(241, 245, 249, 0.95);
+  --theme-border: #e2e8f0;
+  --theme-border-focus: #0066b8;
+  --theme-text: #0f172a;
+  --theme-text-muted: #64748b;
+  --theme-accent: #0284c7;
+  --theme-accent-hover: #0369a1;
+  --theme-secondary: #059669;
+  --theme-header-bg: rgba(241, 245, 249, 0.92);
+  --theme-tab-active: rgba(0, 0, 0, 0.06);
+  --theme-mascot-opacity: 0;
+}
+
+[data-theme='dracula'] {
+  --theme-bg: #282a36;
+  --theme-surface: rgba(40, 42, 54, 0.85);
+  --theme-surface-hover: rgba(56, 59, 76, 0.9);
+  --theme-border: #44475a;
+  --theme-border-focus: #bd93f9;
+  --theme-text: #f8f8f2;
+  --theme-text-muted: #6272a4;
+  --theme-accent: #bd93f9;
+  --theme-accent-hover: #ff79c6;
+  --theme-secondary: #50fa7b;
+  --theme-header-bg: rgba(33, 34, 44, 0.9);
+  --theme-tab-active: rgba(189, 147, 249, 0.15);
+  --theme-mascot-opacity: 0;
+}
+
+[data-theme='one-dark'] {
+  --theme-bg: #282c34;
+  --theme-surface: rgba(33, 37, 43, 0.85);
+  --theme-surface-hover: rgba(44, 49, 58, 0.9);
+  --theme-border: #3e4451;
+  --theme-border-focus: #61afef;
+  --theme-text: #abb2bf;
+  --theme-text-muted: #5c6370;
+  --theme-accent: #61afef;
+  --theme-accent-hover: #74b9ff;
+  --theme-secondary: #98c379;
+  --theme-header-bg: rgba(33, 37, 43, 0.92);
+  --theme-tab-active: rgba(97, 175, 239, 0.15);
+  --theme-mascot-opacity: 0;
+}
+
+[data-theme='catppuccin'] {
+  --theme-bg: #1e1e2e;
+  --theme-surface: rgba(24, 24, 37, 0.85);
+  --theme-surface-hover: rgba(36, 36, 56, 0.9);
+  --theme-border: #313244;
+  --theme-border-focus: #cba6f7;
+  --theme-text: #cdd6f4;
+  --theme-text-muted: #6c7086;
+  --theme-accent: #cba6f7;
+  --theme-accent-hover: #f5c2e7;
+  --theme-secondary: #89b4fa;
+  --theme-header-bg: rgba(24, 24, 37, 0.92);
+  --theme-tab-active: rgba(203, 166, 247, 0.15);
+  --theme-mascot-opacity: 0;
+}
+
+/* Glassmorphic & Mica helper classes */
+.glass-panel {
+  backdrop-filter: blur(var(--glass-blur, 16px));
+  -webkit-backdrop-filter: blur(var(--glass-blur, 16px));
+  background-color: var(--theme-surface);
+  border-color: var(--theme-border);
+}
+
+.glass-header {
+  backdrop-filter: blur(var(--glass-blur, 16px));
+  -webkit-backdrop-filter: blur(var(--glass-blur, 16px));
+  background-color: var(--theme-header-bg);
+  border-color: var(--theme-border);
+}
+
+.hoshino-mascot-watermark {
+  pointer-events: none;
+  background-image: url('/icon.png');
+  background-repeat: no-repeat;
+  background-position: right 16px bottom 16px;
+  background-size: 260px;
+  opacity: var(--theme-mascot-opacity, 0.14);
+}
