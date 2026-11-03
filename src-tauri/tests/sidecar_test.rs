@@ -67,6 +67,6 @@ fn test_sidecar_filename_fallback() {
 
     let loaded = load_sidecar(&source_path).expect("Should load alt sidecar");
     assert_eq!(loaded.problem.name, "Fallback Test");
-    assert_eq!(loaded.testcases[0].custom, true);
+    assert!(loaded.testcases[0].custom);
 }
 
