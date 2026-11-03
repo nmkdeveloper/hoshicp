@@ -3,6 +3,7 @@ pub mod error;
 pub mod models;
 pub mod runner;
 pub mod storage;
+pub mod stress;
 
 pub use error::AppError;
 
