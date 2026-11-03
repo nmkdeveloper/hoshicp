@@ -65,6 +65,12 @@ export const StressTestingPanel: React.FC<StressTestingPanelProps> = ({
   const stopRequestedRef = useRef<boolean>(false);
 
   useEffect(() => {
+    return () => {
+      stopRequestedRef.current = true;
+    };
+  }, []);
+
+  useEffect(() => {
     if (activeProblem) {
       if (!targetPath || targetPath === 'solution.cpp') {
         setTargetPath(activeProblem.filePath || activeProblem.name || 'solution.cpp');
@@ -84,46 +90,72 @@ export const StressTestingPanel: React.FC<StressTestingPanelProps> = ({
     setAddedSuccess(false);
     stopRequestedRef.current = false;
 
-    try {
-      const { invoke } = await import('@tauri-apps/api/core');
-      const { listen } = await import('@tauri-apps/api/event');
+    let unlisten: (() => void) | undefined;
+    const isUnderTauri =
+      typeof window !== 'undefined' &&
+      Boolean((window as any).__TAURI_INTERNALS__);
 
-      const unlisten = await listen<any>('stress:progress', (event) => {
-        if (typeof event.payload === 'number') {
-          setCurrentIteration(event.payload);
-        } else if (event.payload?.iteration) {
-          setCurrentIteration(event.payload.iteration);
-        }
-      });
+    if (isUnderTauri) {
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        const { listen } = await import('@tauri-apps/api/event');
 
-      const res = await invoke<any>('run_stress_test', {
-        config: {
-          generator_bin: generatorPath,
-          model_bin: modelPath,
-          target_bin: targetPath,
-          max_iterations: maxIterations,
-          time_limit_ms: timeLimit,
-          memory_limit_mb: memoryLimit,
-        },
-      });
-
-      unlisten();
-
-      if (res) {
-        setCurrentIteration(res.iteration || maxIterations);
-        const mappedStatus = (res.status?.toLowerCase() || 'passed') as StressStatusType;
-        setStatus(mappedStatus);
-        setResult({
-          iteration: res.iteration || maxIterations,
-          status: mappedStatus,
-          failingInput: res.failing_input,
-          modelOutput: res.model_output,
-          targetOutput: res.target_output,
-          message: res.message,
+        unlisten = await listen<any>('stress:progress', (event) => {
+          if (typeof event.payload === 'number') {
+            setCurrentIteration(event.payload);
+          } else if (event.payload?.iteration) {
+            setCurrentIteration(event.payload.iteration);
+          }
         });
+
+        const res = await invoke<any>('run_stress_test', {
+          config: {
+            generator_bin: generatorPath,
+            model_bin: modelPath,
+            target_bin: targetPath,
+            max_iterations: maxIterations,
+            time_limit_ms: timeLimit,
+            memory_limit_mb: memoryLimit,
+          },
+        });
+
+        if (res) {
+          setCurrentIteration(res.iteration || maxIterations);
+          const mappedStatus = (res.status?.toLowerCase() || 'passed') as StressStatusType;
+          setStatus(mappedStatus);
+          setResult({
+            iteration: res.iteration || maxIterations,
+            status: mappedStatus,
+            failingInput: res.failing_input,
+            modelOutput: res.model_output,
+            targetOutput: res.target_output,
+            message: res.message,
+          });
+        }
+      } catch (err: any) {
+        const errorMsg = err?.message || String(err);
+        const errorStatus: StressStatusType = errorMsg.toLowerCase().includes('generator')
+          ? 'generator_error'
+          : errorMsg.toLowerCase().includes('model')
+            ? 'model_error'
+            : 'target_error';
+        setStatus(errorStatus);
+        setResult({
+          iteration: currentIteration || 1,
+          status: errorStatus,
+          message: errorMsg,
+        });
+      } finally {
+        if (unlisten) {
+          unlisten();
+        }
+        setIsRunning(false);
       }
-    } catch {
-      // Fallback: simulation loop for testing or browser environment
+      return;
+    }
+
+    // Fallback: simulation loop strictly for non-Tauri / web browser environment
+    try {
       let iter = 0;
       for (let i = 1; i <= maxIterations; i++) {
         if (stopRequestedRef.current) {
@@ -133,13 +165,11 @@ export const StressTestingPanel: React.FC<StressTestingPanelProps> = ({
             status: 'cancelled',
             message: 'Stress testing stopped by user.',
           });
-          setIsRunning(false);
           return;
         }
 
         iter = i;
         setCurrentIteration(iter);
-        // Small interval simulation
         await new Promise((resolve) => setTimeout(resolve, 15));
       }
 
@@ -320,7 +350,13 @@ export const StressTestingPanel: React.FC<StressTestingPanelProps> = ({
                       ? `Mismatch found at iteration ${currentIteration}!`
                       : status === 'cancelled'
                         ? `Cancelled at iteration ${currentIteration}`
-                        : 'Ready to test'}
+                        : status === 'generator_error'
+                          ? `Generator error at iteration ${currentIteration}`
+                          : status === 'model_error'
+                            ? `Model error at iteration ${currentIteration}`
+                            : status === 'target_error'
+                              ? `Target error at iteration ${currentIteration}`
+                              : 'Ready to test'}
               </span>
               <span className="font-mono text-xs text-[var(--theme-accent)]">
                 {progressPercent}%
@@ -331,7 +367,10 @@ export const StressTestingPanel: React.FC<StressTestingPanelProps> = ({
             <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
               <div
                 className={`h-full transition-all duration-150 ${
-                  status === 'mismatch'
+                  status === 'mismatch' ||
+                  status === 'generator_error' ||
+                  status === 'model_error' ||
+                  status === 'target_error'
                     ? 'bg-rose-500'
                     : status === 'passed'
                       ? 'bg-emerald-500'
@@ -341,6 +380,30 @@ export const StressTestingPanel: React.FC<StressTestingPanelProps> = ({
               />
             </div>
           </div>
+
+          {/* Error Banner for Process Failures */}
+          {result &&
+            (status === 'generator_error' ||
+              status === 'model_error' ||
+              status === 'target_error') && (
+              <div className="rounded-lg border border-rose-500/30 bg-rose-500/10 p-3.5 space-y-2">
+                <div className="flex items-center space-x-2 text-rose-400 font-semibold">
+                  <AlertTriangle className="h-4 w-4 shrink-0" />
+                  <span>
+                    {status === 'generator_error'
+                      ? 'Generator Error'
+                      : status === 'model_error'
+                        ? 'Model Solution Error'
+                        : 'Target Solution Error'}
+                  </span>
+                </div>
+                {result.message && (
+                  <pre className="max-h-24 overflow-auto rounded bg-black/40 p-2 font-mono text-[11px] text-rose-200 whitespace-pre-wrap">
+                    {result.message}
+                  </pre>
+                )}
+              </div>
+            )}
 
           {/* Mismatch & Result Details */}
           {result && status === 'mismatch' && (

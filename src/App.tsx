@@ -30,9 +30,9 @@ export default function App() {
         setActiveProblemId(existing.id);
         return prev;
       }
+      setActiveProblemId(newProblem.id);
       return [...prev, newProblem];
     });
-    setActiveProblemId(newProblem.id);
   }, []);
 
   useCompanion({
