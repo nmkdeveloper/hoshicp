@@ -1,0 +1,84 @@
+name: Release
+
+'on':
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-22.04]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Setup Rust toolchain
+        uses: dtolnay/rust-toolchain@stable
+
+      - name: Install Linux dependencies
+        if: matrix.os == 'ubuntu-22.04'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libappindicator3-dev librsvg2-dev patchelf
+
+      - name: Install frontend dependencies
+        run: npm ci
+
+      - name: Build frontend
+        run: npm run build
+
+      - name: Build Tauri Application & Generate Updater Manifest
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: 'HoshiCP ${{ github.ref_name }}'
+          releaseBody: 'HoshiCP ~ Cute & Lightning-fast Competitive Programming IDE release.'
+          releaseDraft: false
+          prerelease: false
+          includeUpdaterJson: true # Produces latest.json for auto-updater
+
+      - name: Build Custom Windows Installer & Portable Package
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        run: |
+          # 1. Compile custom Rust installer (crates/installer -> HoshiCP-Setup.exe)
+          cargo build --release --manifest-path crates/installer/Cargo.toml
+          cp crates/installer/target/release/HoshiCP-Setup.exe ./HoshiCP-Setup.exe
+
+          # 2. Package standalone portable binary into HoshiCP-windows-x64.zip
+          7z a HoshiCP-windows-x64.zip ./src-tauri/target/release/hoshicp.exe ./public/icon.png
+
+      - name: Upload Windows Custom Installer & Portable Zip
+        if: matrix.os == 'windows-latest'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: |
+            HoshiCP-Setup.exe
+            HoshiCP-windows-x64.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      # Note on non-Windows release artifacts produced by tauri-action:
+      # - macOS runner produces HoshiCP.dmg and HoshiCP.app.tar.gz
+      # - Linux runner produces HoshiCP.AppImage and HoshiCP.tar.gz
+      # All signed updater bundles and latest.json are merged and published to the GitHub Release.
