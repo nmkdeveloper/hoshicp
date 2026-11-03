@@ -21,12 +21,18 @@ import type { Problem, TestCase, TestCaseResult } from '../../types';
 
 export interface AppShellProps {
   initialProblems?: Problem[];
+  problems?: Problem[];
+  activeProblemId?: string;
+  onSelectProblem?: (id: string) => void;
+  onCloseProblem?: (id: string) => void;
+  onNewProblem?: () => void;
+  onProblemsChange?: (problems: Problem[]) => void;
   onOpenSettings?: () => void;
   onOpenStressTest?: () => void;
   onFileSave?: (problem: Problem) => void;
 }
 
-const DEFAULT_PROBLEMS: Problem[] = [
+export const DEFAULT_PROBLEMS: Problem[] = [
   {
     id: 'problem-1',
     name: 'A. Watermelon',
@@ -63,6 +69,12 @@ int main() {
 
 export const AppShell: React.FC<AppShellProps> = ({
   initialProblems = DEFAULT_PROBLEMS,
+  problems: problemsProp,
+  activeProblemId: activeProblemIdProp,
+  onSelectProblem: onSelectProblemProp,
+  onCloseProblem: onCloseProblemProp,
+  onNewProblem: onNewProblemProp,
+  onProblemsChange,
   onOpenSettings,
   onOpenStressTest,
   onFileSave,
@@ -70,10 +82,28 @@ export const AppShell: React.FC<AppShellProps> = ({
   const { theme, transparent } = useTheme();
 
   // Problem management state
-  const [problems, setProblems] = useState<Problem[]>(initialProblems);
-  const [activeProblemId, setActiveProblemId] = useState<string>(
+  const [internalProblems, setInternalProblems] = useState<Problem[]>(initialProblems);
+  const [internalActiveProblemId, setInternalActiveProblemId] = useState<string>(
     initialProblems[0]?.id || 'problem-1'
   );
+
+  const problems = problemsProp ?? internalProblems;
+  const activeProblemId = activeProblemIdProp ?? internalActiveProblemId;
+
+  const setProblems = (updater: Problem[] | ((prev: Problem[]) => Problem[])) => {
+    const next = typeof updater === 'function' ? updater(problems) : updater;
+    if (onProblemsChange) {
+      onProblemsChange(next);
+    }
+    setInternalProblems(next);
+  };
+
+  const setActiveProblemId = (id: string) => {
+    if (onSelectProblemProp) {
+      onSelectProblemProp(id);
+    }
+    setInternalActiveProblemId(id);
+  };
 
   const activeProblem = problems.find((p) => p.id === activeProblemId) || problems[0];
 
@@ -118,6 +148,10 @@ export const AppShell: React.FC<AppShellProps> = ({
   };
 
   const handleCloseProblem = (id: string) => {
+    if (onCloseProblemProp) {
+      onCloseProblemProp(id);
+      return;
+    }
     if (problems.length <= 1) return;
     const remaining = problems.filter((p) => p.id !== id);
     setProblems(remaining);
@@ -128,6 +162,10 @@ export const AppShell: React.FC<AppShellProps> = ({
   };
 
   const handleNewProblem = () => {
+    if (onNewProblemProp) {
+      onNewProblemProp();
+      return;
+    }
     const newId = `problem-${Date.now()}`;
     const newProblem: Problem = {
       id: newId,
