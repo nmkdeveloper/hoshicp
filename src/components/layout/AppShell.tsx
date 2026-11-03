@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useRef } from 'react';
+import React, { useState, useCallback, useRef, useEffect } from 'react';
 import {
   Terminal,
   AlertCircle,
@@ -106,6 +106,40 @@ export const AppShell: React.FC<AppShellProps> = ({
   };
 
   const activeProblem = problems.find((p) => p.id === activeProblemId) || problems[0];
+
+  // LSP server state
+  const [lspPort, setLspPort] = useState<number | undefined>(undefined);
+
+  useEffect(() => {
+    let isMounted = true;
+    const lang = activeProblem?.language;
+    if (!lang) {
+      setLspPort(undefined);
+      return;
+    }
+
+    const startLsp = async () => {
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        const port = await invoke<number>('start_lsp_server', {
+          language: lang,
+        });
+        if (isMounted) {
+          setLspPort(port);
+        }
+      } catch {
+        if (isMounted) {
+          setLspPort(undefined);
+        }
+      }
+    };
+
+    startLsp();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [activeProblem?.language]);
 
   // Execution and compilation state
   const [isCompiling, setIsCompiling] = useState<boolean>(false);
@@ -468,6 +502,7 @@ export const AppShell: React.FC<AppShellProps> = ({
               language={activeProblem.language}
               theme={theme}
               transparent={transparent}
+              lspPort={lspPort}
               className="h-full w-full"
             />
           </div>

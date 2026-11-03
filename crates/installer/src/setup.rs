@@ -321,7 +321,55 @@ pub fn perform_uninstall(install_dir: &Path) -> Result<(), String> {
     let _ = crate::shortcuts::remove_shortcuts();
     let _ = unregister_uninstaller();
     if install_dir.exists() {
-        let _ = std::fs::remove_dir_all(install_dir);
+        let is_running_from_target = std::env::current_exe()
+            .ok()
+            .map(|p| p.starts_with(install_dir))
+            .unwrap_or(false);
+
+        if is_running_from_target {
+            if let Ok(entries) = std::fs::read_dir(install_dir) {
+                let current_exe = std::env::current_exe().ok();
+                for entry in entries.flatten() {
+                    let path = entry.path();
+                    if Some(&path) == current_exe.as_ref() {
+                        continue;
+                    }
+                    if path.is_dir() {
+                        let _ = std::fs::remove_dir_all(&path);
+                    } else {
+                        let _ = std::fs::remove_file(&path);
+                    }
+                }
+            }
+
+            #[cfg(windows)]
+            {
+                use std::os::windows::process::CommandExt;
+                const DETACHED_PROCESS: u32 = 0x00000008;
+                const CREATE_NO_WINDOW: u32 = 0x08000000;
+                let cmd = format!("ping 127.0.0.1 -n 2 > nul & rd /s /q \"{}\"", install_dir.display());
+                let _ = std::process::Command::new("cmd.exe")
+                    .raw_arg(format!("/C \"{}\"", cmd))
+                    .creation_flags(DETACHED_PROCESS | CREATE_NO_WINDOW)
+                    .spawn();
+            }
+            #[cfg(not(windows))]
+            {
+                let _ = std::fs::remove_dir_all(install_dir);
+            }
+        } else if std::fs::remove_dir_all(install_dir).is_err() {
+            #[cfg(windows)]
+            {
+                use std::os::windows::process::CommandExt;
+                const DETACHED_PROCESS: u32 = 0x00000008;
+                const CREATE_NO_WINDOW: u32 = 0x08000000;
+                let cmd = format!("ping 127.0.0.1 -n 2 > nul & rd /s /q \"{}\"", install_dir.display());
+                let _ = std::process::Command::new("cmd.exe")
+                    .raw_arg(format!("/C \"{}\"", cmd))
+                    .creation_flags(DETACHED_PROCESS | CREATE_NO_WINDOW)
+                    .spawn();
+            }
+        }
     }
     Ok(())
 }

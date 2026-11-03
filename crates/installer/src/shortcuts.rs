@@ -35,6 +35,7 @@ fn create_shortcut_com(target_exe: &Path, shortcut_path: &Path, description: &st
     use windows_sys::Win32::System::Com::{CoCreateInstance, CoInitializeEx, CoUninitialize, CLSCTX_INPROC_SERVER, COINIT_APARTMENTTHREADED};
 
     #[repr(C)]
+    #[allow(clippy::upper_case_acronyms)]
     struct GUID {
         data1: u32,
         data2: u16,

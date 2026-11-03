@@ -17,6 +17,22 @@ impl std::fmt::Display for CompileError {
 
 impl std::error::Error for CompileError {}
 
+fn quote_and_sanitize_path(path: &Path) -> String {
+    let clean = path.to_string_lossy().replace(['\r', '\n'], "");
+    format!("\"{}\"", clean.replace('"', "\\\""))
+}
+
+fn replace_placeholder(template: &str, placeholder: &str, safe_quoted: &str) -> String {
+    let quoted_double = format!("\"{{{}}}\"", placeholder);
+    let quoted_single = format!("'{{{}}}'", placeholder);
+    let raw = format!("{{{}}}", placeholder);
+
+    template
+        .replace(&quoted_double, safe_quoted)
+        .replace(&quoted_single, safe_quoted)
+        .replace(&raw, safe_quoted)
+}
+
 /// Compiles a source file into an executable binary or returns an existing entry script (e.g. for Python).
 /// Supports "cpp", "c++", "rust", "rs", "python", "py", "java".
 /// Custom command can contain `{source}` and `{output}` placeholders.
@@ -60,10 +76,12 @@ pub fn compile_source(
     let output_path = parent_dir.join(exe_name);
 
     if let Some(template) = custom_cmd {
-        let cmd_str = template
-            .replace("{source}", &source_path.to_string_lossy())
-            .replace("{file}", &source_path.to_string_lossy())
-            .replace("{output}", &output_path.to_string_lossy());
+        let safe_source = quote_and_sanitize_path(source_path);
+        let safe_output = quote_and_sanitize_path(&output_path);
+
+        let mut cmd_str = replace_placeholder(template, "source", &safe_source);
+        cmd_str = replace_placeholder(&cmd_str, "file", &safe_source);
+        cmd_str = replace_placeholder(&cmd_str, "output", &safe_output);
 
         return run_shell_command(&cmd_str, parent_dir, &output_path);
     }

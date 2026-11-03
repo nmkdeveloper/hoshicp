@@ -16,7 +16,7 @@
         "title": "HoshiCP",
         "width": 1280,
         "height": 800,
-        "decorations": true,
+        "decorations": false,
         "transparent": true
       }
     ],

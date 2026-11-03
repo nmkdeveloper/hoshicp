@@ -78,7 +78,77 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Save updater manifest artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: updater-manifest-${{ matrix.os }}
+          path: |
+            src-tauri/target/release/bundle/**/latest.json
+            latest.json
+          if-no-files-found: ignore
+
       # Note on non-Windows release artifacts produced by tauri-action:
       # - macOS runner produces HoshiCP.dmg and HoshiCP.app.tar.gz
       # - Linux runner produces HoshiCP.AppImage and HoshiCP.tar.gz
       # All signed updater bundles and latest.json are merged and published to the GitHub Release.
+
+  combine-manifests:
+    name: Combine Updater Manifests
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download all updater manifest artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: updater-artifacts
+
+      - name: Merge updater manifests into unified latest.json
+        run: |
+          node -e '
+            const fs = require("fs");
+            const path = require("path");
+
+            let merged = {
+              version: process.env.GITHUB_REF_NAME ? process.env.GITHUB_REF_NAME.replace(/^v/, "") : "0.1.0",
+              notes: "HoshiCP release",
+              pub_date: new Date().toISOString(),
+              platforms: {}
+            };
+
+            function scan(dir) {
+              if (!fs.existsSync(dir)) return;
+              for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+                const full = path.join(dir, entry.name);
+                if (entry.isDirectory()) {
+                  scan(full);
+                } else if (entry.name.endsWith(".json")) {
+                  try {
+                    const parsed = JSON.parse(fs.readFileSync(full, "utf8"));
+                    if (parsed && parsed.platforms) {
+                      merged.version = parsed.version || merged.version;
+                      merged.notes = parsed.notes || merged.notes;
+                      merged.pub_date = parsed.pub_date || merged.pub_date;
+                      Object.assign(merged.platforms, parsed.platforms);
+                    }
+                  } catch (e) {
+                    console.error("Skipping file " + full + ":", e.message);
+                  }
+                }
+              }
+            }
+
+            scan("updater-artifacts");
+            fs.writeFileSync("latest.json", JSON.stringify(merged, null, 2));
+            console.log("Unified latest.json:\n", JSON.stringify(merged, null, 2));
+          '
+
+      - name: Upload unified latest.json to release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          files: latest.json
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

@@ -88,6 +88,27 @@ fn test_compile_custom_cmd_with_file_placeholder() {
 }
 
 #[test]
+fn test_compile_custom_cmd_with_spaces_in_path() {
+    let temp_dir = tempfile::tempdir().unwrap();
+    let sub_dir = temp_dir.path().join("path with spaces");
+    fs::create_dir_all(&sub_dir).unwrap();
+    let src_file = sub_dir.join("file with spaces.txt");
+    fs::write(&src_file, "data spaces").unwrap();
+
+    // Use unquoted placeholders in template to verify auto-quoting works
+    let custom_cmd = if cfg!(windows) {
+        "copy /y {source} {output}"
+    } else {
+        "cp {source} {output}"
+    };
+
+    let res = compile_source(&src_file, "custom", Some(custom_cmd));
+    assert!(res.is_ok(), "Custom command with spaces failed: {:?}", res);
+    let out = res.unwrap();
+    assert!(out.exists());
+}
+
+#[test]
 fn test_compile_bare_path_custom_cmd() {
     let bare_file = Path::new("test_bare_input.txt");
     fs::write(bare_file, "bare data").unwrap();

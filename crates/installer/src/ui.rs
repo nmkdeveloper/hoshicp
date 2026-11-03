@@ -526,8 +526,7 @@ unsafe extern "system" fn wnd_proc(
             let pct = wparam as i32;
             let msg_ptr = lparam as *mut String;
             let msg_text = if !msg_ptr.is_null() {
-                let s = *Box::from_raw(msg_ptr);
-                s
+                *Box::from_raw(msg_ptr)
             } else {
                 String::new()
             };
