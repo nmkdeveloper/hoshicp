@@ -84,16 +84,19 @@ pub fn is_process_running(process_name: &str) -> bool {
     let mut found = false;
 
     if unsafe { Process32FirstW(snapshot, &mut entry) } != 0 {
+        let current_pid = std::process::id();
         loop {
-            let len = entry
-                .szExeFile
-                .iter()
-                .position(|&c| c == 0)
-                .unwrap_or(entry.szExeFile.len());
-            let name = String::from_utf16_lossy(&entry.szExeFile[..len]);
-            if name.eq_ignore_ascii_case(process_name) {
-                found = true;
-                break;
+            if entry.th32ProcessID != current_pid {
+                let len = entry
+                    .szExeFile
+                    .iter()
+                    .position(|&c| c == 0)
+                    .unwrap_or(entry.szExeFile.len());
+                let name = String::from_utf16_lossy(&entry.szExeFile[..len]);
+                if name.eq_ignore_ascii_case(process_name) {
+                    found = true;
+                    break;
+                }
             }
             if unsafe { Process32NextW(snapshot, &mut entry) } == 0 {
                 break;
@@ -126,20 +129,23 @@ pub fn terminate_process(process_name: &str) -> Result<usize, String> {
     let mut count = 0;
 
     if unsafe { Process32FirstW(snapshot, &mut entry) } != 0 {
+        let current_pid = std::process::id();
         loop {
-            let len = entry
-                .szExeFile
-                .iter()
-                .position(|&c| c == 0)
-                .unwrap_or(entry.szExeFile.len());
-            let name = String::from_utf16_lossy(&entry.szExeFile[..len]);
-            if name.eq_ignore_ascii_case(process_name) {
-                let h_proc = unsafe { OpenProcess(PROCESS_TERMINATE, 0, entry.th32ProcessID) };
-                if !h_proc.is_null() {
-                    let terminated = unsafe { TerminateProcess(h_proc, 1) };
-                    unsafe { CloseHandle(h_proc) };
-                    if terminated != 0 {
-                        count += 1;
+            if entry.th32ProcessID != current_pid {
+                let len = entry
+                    .szExeFile
+                    .iter()
+                    .position(|&c| c == 0)
+                    .unwrap_or(entry.szExeFile.len());
+                let name = String::from_utf16_lossy(&entry.szExeFile[..len]);
+                if name.eq_ignore_ascii_case(process_name) {
+                    let h_proc = unsafe { OpenProcess(PROCESS_TERMINATE, 0, entry.th32ProcessID) };
+                    if !h_proc.is_null() {
+                        let terminated = unsafe { TerminateProcess(h_proc, 1) };
+                        unsafe { CloseHandle(h_proc) };
+                        if terminated != 0 {
+                            count += 1;
+                        }
                     }
                 }
             }
@@ -238,7 +244,11 @@ pub fn register_uninstaller(install_dir: &Path) -> std::io::Result<()> {
         key.set_value("Publisher", &"nmkdeveloper")?;
         key.set_value("InstallLocation", &install_dir.to_string_lossy().as_ref())?;
 
-        let uninstall_cmd = format!("\"{}\" --uninstall", install_dir.join("uninstall.exe").display());
+        let uninstall_cmd = format!(
+            "\"{}\" --uninstall --install-dir \"{}\"",
+            install_dir.join("uninstall.exe").display(),
+            install_dir.display()
+        );
         key.set_value("UninstallString", &uninstall_cmd)?;
 
         let icon_cmd = format!("\"{}\",0", install_dir.join("HoshiCP.exe").display());

@@ -7,7 +7,23 @@ fn main() {
     let opts = parse_args();
 
     if std::env::args().any(|a| a == "--uninstall") {
-        if let Err(e) = perform_uninstall(&opts.install_dir) {
+        let install_dir = if std::env::args().any(|a| a == "--install-dir" || a == "-d") {
+            opts.install_dir
+        } else if let Ok(exe_path) = std::env::current_exe() {
+            if let Some(parent) = exe_path.parent() {
+                if parent.join("HoshiCP.exe").exists() {
+                    parent.to_path_buf()
+                } else {
+                    opts.install_dir
+                }
+            } else {
+                opts.install_dir
+            }
+        } else {
+            opts.install_dir
+        };
+
+        if let Err(e) = perform_uninstall(&install_dir) {
             eprintln!("Uninstall failed: {}", e);
             std::process::exit(1);
         }
