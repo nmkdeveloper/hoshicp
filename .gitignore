@@ -1,0 +1,13 @@
+# Build & dependencies
+target/
+node_modules/
+dist/
+build/
+
+# Temps & scratch
+temps/
+.superpowers/
+
+# OS artifacts
+.DS_Store
+Thumbs.db
