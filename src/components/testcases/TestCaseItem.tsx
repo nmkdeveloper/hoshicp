@@ -259,8 +259,30 @@ export const TestCaseItem: React.FC<TestCaseItemProps> = ({
             </div>
           )}
 
-          {/* Stderr if present */}
-          {result?.stderr && result.stderr.trim().length > 0 && (
+          {/* Runtime Error (RE) Detailed Crash Box */}
+          {result?.status === 'RuntimeError' && (
+            <div className="space-y-1 pt-1">
+              <div className="flex items-center justify-between text-[11px] font-semibold text-rose-400">
+                <span className="flex items-center space-x-1">
+                  <AlertOctagon className="h-3.5 w-3.5 text-rose-400" />
+                  <span>Runtime Error (RE) Details</span>
+                </span>
+                {result.exit_code !== undefined && result.exit_code !== null && (
+                  <span className="font-mono text-[10px] rounded bg-rose-500/20 px-1.5 py-0.5 border border-rose-500/30">
+                    Exit Code: {result.exit_code}
+                  </span>
+                )}
+              </div>
+              <pre className="rounded-md border border-rose-500/50 bg-rose-950/40 p-2.5 font-mono text-xs text-rose-200 max-h-40 overflow-auto whitespace-pre-wrap leading-relaxed shadow-inner">
+                {result.stderr && result.stderr.trim().length > 0
+                  ? result.stderr
+                  : `Process crashed with non-zero exit code (${result.exit_code ?? 'Abnormal Termination'}).\nCommon causes: Segmentation fault (array out of bounds), Division by zero, Stack overflow (deep recursion), or Uncaught exception.`}
+              </pre>
+            </div>
+          )}
+
+          {/* Stderr if present (for non-RE results) */}
+          {result?.status !== 'RuntimeError' && result?.stderr && result.stderr.trim().length > 0 && (
             <div className="space-y-1 pt-1">
               <div className="text-[11px] text-amber-400">Standard Error (stderr)</div>
               <pre className="rounded-md border border-amber-500/30 bg-amber-950/20 p-2 font-mono text-xs text-amber-200 max-h-32 overflow-auto whitespace-pre-wrap">

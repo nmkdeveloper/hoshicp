@@ -18,7 +18,7 @@ import { DiffViewerModal } from '../testcases/DiffViewerModal';
 import { computeTokenDiff } from '../testcases/diffHelper';
 import { useTheme } from '../theme/ThemeManager';
 import { type Problem, type TestCase, type TestCaseResult, padLinesToMinimum, stripPaddingLines } from '../../types';
-import { loadStoredSettings } from '../settings/SettingsModal';
+import { loadStoredSettings, type AppSettings } from '../settings/SettingsModal';
 import { DEFAULT_TEMPLATES } from '../../hooks/useCompanion';
 import { parseTestcaseFiles, type RawTestcaseFile } from '../testcases/testcaseParser';
 
@@ -32,6 +32,7 @@ export interface AppShellProps {
   onProblemsChange?: (problems: Problem[]) => void;
   onOpenSettings?: () => void;
   onFileSave?: (problem: Problem) => void;
+  settings?: AppSettings;
 }
 
 export function createDefaultProblem(): Problem {
@@ -74,8 +75,10 @@ export const AppShell: React.FC<AppShellProps> = ({
   onProblemsChange,
   onOpenSettings,
   onFileSave,
+  settings: settingsProp,
 }) => {
   const { theme, transparent } = useTheme();
+  const settings = settingsProp ?? loadStoredSettings();
 
   // Problem management state
   const [internalProblems, setInternalProblems] = useState<Problem[]>(initialProblems);
@@ -337,6 +340,43 @@ export const AppShell: React.FC<AppShellProps> = ({
         ? activeProblem.testcases.filter((t) => t.id === targetTcId)
         : activeProblem.testcases;
 
+      // If no testcases exist, execute code directly and log output & RE details straight to console drawer
+      if (testsToRun.length === 0) {
+        setIsConsoleOpen(true);
+        setActiveConsoleTab('execution');
+        setExecutionLogs(
+          (prev) => prev + `[${new Date().toLocaleTimeString()}] Running ${activeProblem.name} without testcases...\n`
+        );
+        try {
+          const { invoke } = await import('@tauri-apps/api/core');
+          const res = await invoke<any>('run_testcase', {
+            sourceCode: stripPaddingLines(activeProblem.code),
+            language: activeProblem.language,
+            testcase: { id: 'tc-direct', input: '', output: '', custom: true },
+            timeLimitMs: activeProblem.timeLimit,
+            memoryLimitMb: activeProblem.memoryLimit,
+          });
+          const exitStr = res.exit_code !== null ? `Exit code: ${res.exit_code}` : 'Terminated';
+          let logOutput = `[Execution Finished] Status: ${res.status} (${exitStr}, Time: ${res.execution_time_ms}ms, Mem: ${res.memory_usage_kb}KB)\n`;
+          if (res.stdout && res.stdout.length > 0) {
+            logOutput += `--- Standard Output (stdout) ---\n${res.stdout}\n`;
+          }
+          if (res.stderr && res.stderr.length > 0) {
+            logOutput += `--- Standard Error (stderr) ---\n${res.stderr}\n`;
+          }
+          if (res.status === 'RuntimeError') {
+            logOutput += `[Runtime Error (RE)] Process terminated abnormally with non-zero exit code.\n`;
+          }
+          setExecutionLogs((prev) => prev + logOutput);
+        } catch (err: any) {
+          setExecutionLogs((prev) => prev + `[Execution Error] ${err?.message || err}\n`);
+        } finally {
+          setIsRunning(false);
+          setRunningTestId(null);
+        }
+        return;
+      }
+
       // Mark running status
       setResults((prev) => {
         const next = { ...prev };
@@ -359,6 +399,8 @@ export const AppShell: React.FC<AppShellProps> = ({
 
         if (res && res.results) {
           const newResults: Record<string, TestCaseResult> = {};
+          let hasRuntimeError = false;
+          let runtimeErrorLogs = '';
           res.results.forEach((r: any, idx: number) => {
             const tc = testsToRun[idx];
             if (tc) {
@@ -370,11 +412,23 @@ export const AppShell: React.FC<AppShellProps> = ({
                 memory_usage_kb: r.memory_usage_kb,
                 exit_code: r.exit_code,
               };
+              if (r.status === 'RuntimeError') {
+                hasRuntimeError = true;
+                const exitInfo = r.exit_code !== null ? `(Exit code: ${r.exit_code})` : '';
+                runtimeErrorLogs += `[Runtime Error on Case #${idx + 1}] ${exitInfo}\n${
+                  r.stderr || 'Abnormal termination (segfault / out of bounds access / uncaught exception)'
+                }\n`;
+              }
             }
           });
           setResults((prev) => ({ ...prev, ...newResults }));
           if (res.logs) {
             setExecutionLogs((prev) => prev + res.logs + '\n');
+          }
+          if (hasRuntimeError) {
+            setExecutionLogs((prev) => prev + runtimeErrorLogs);
+            setIsConsoleOpen(true);
+            setActiveConsoleTab('execution');
           }
           return;
         }
@@ -510,6 +564,22 @@ export const AppShell: React.FC<AppShellProps> = ({
       setCopiedConsole(true);
       setTimeout(() => setCopiedConsole(false), 1200);
     } catch {}
+  };
+
+  const handleCopyStrippedCode = async () => {
+    if (!activeProblem) return;
+    const cleanCode = stripPaddingLines(activeProblem.code);
+    try {
+      await navigator.clipboard.writeText(cleanCode);
+      setCompilerLogs((prev) => prev + `[Copied] Clean source code copied to clipboard.\n`);
+    } catch {
+      const ta = document.createElement('textarea');
+      ta.value = cleanCode;
+      document.body.appendChild(ta);
+      ta.select();
+      document.execCommand('copy');
+      document.body.removeChild(ta);
+    }
   };
 
   const handleSaveCode = async () => {
@@ -738,6 +808,7 @@ export const AppShell: React.FC<AppShellProps> = ({
         onStop={handleStop}
         onSaveCode={handleSaveCode}
         onOpenCode={handleOpenCode}
+        onCopyStrippedCode={handleCopyStrippedCode}
         onOpenSettings={() => onOpenSettings?.()}
       />
 
@@ -755,6 +826,9 @@ export const AppShell: React.FC<AppShellProps> = ({
               theme={theme}
               transparent={transparent}
               lspPort={lspPort}
+              tabSize={settings.tabSize}
+              indentWithSpaces={settings.indentWithSpaces}
+              completionKey={settings.completionKey}
               className="h-full w-full"
             />
           </div>

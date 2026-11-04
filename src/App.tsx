@@ -74,6 +74,7 @@ export default function App() {
         onNewProblem={handleCreateNewProblem}
         onProblemsChange={setProblems}
         onOpenSettings={() => setIsSettingsOpen(true)}
+        settings={settings}
       />
 
       <SettingsModal

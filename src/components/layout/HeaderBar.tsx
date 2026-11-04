@@ -15,6 +15,7 @@ import {
   EyeOff,
   FolderOpen,
   Save,
+  Copy,
 } from 'lucide-react';
 import { useTheme, THEME_LIST, type ThemeName } from '../theme/ThemeManager';
 import type { Problem } from '../../types';
@@ -32,6 +33,7 @@ export interface HeaderBarProps {
   onStop: () => void;
   onSaveCode?: () => void;
   onOpenCode?: () => void;
+  onCopyStrippedCode?: () => void;
   onOpenSettings: () => void;
 }
 
@@ -48,10 +50,12 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   onStop,
   onSaveCode,
   onOpenCode,
+  onCopyStrippedCode,
   onOpenSettings,
 }) => {
   const { theme, setTheme, transparent, setTransparent, showMascot, setShowMascot } = useTheme();
   const [themeDropdownOpen, setThemeDropdownOpen] = useState(false);
+  const [copiedCodeBadge, setCopiedCodeBadge] = useState(false);
   const themeDropdownRef = useRef<HTMLDivElement | null>(null);
 
   // Close theme menu when clicking outside
@@ -253,6 +257,27 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             <Save className="h-3.5 w-3.5" />
             <span className="hidden lg:inline">Save</span>
           </button>
+
+          {/* Copy Clean/Stripped Code */}
+          {onCopyStrippedCode && (
+            <button
+              type="button"
+              onClick={() => {
+                onCopyStrippedCode();
+                setCopiedCodeBadge(true);
+                setTimeout(() => setCopiedCodeBadge(false), 1500);
+              }}
+              className="flex items-center space-x-1 rounded-lg border border-[var(--theme-border)] bg-white/5 px-2 py-1 text-xs font-medium text-[var(--theme-text)] hover:bg-white/10 transition-colors"
+              title="Copy Clean Source Code without trailing blank lines"
+            >
+              {copiedCodeBadge ? (
+                <Check className="h-3.5 w-3.5 text-emerald-400" />
+              ) : (
+                <Copy className="h-3.5 w-3.5" />
+              )}
+              <span className="hidden xl:inline">{copiedCodeBadge ? 'Copied!' : 'Copy Code'}</span>
+            </button>
+          )}
         </div>
 
         {/* Theme Selector Popover */}

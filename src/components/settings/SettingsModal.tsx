@@ -10,6 +10,8 @@ import {
   RotateCcw,
   Check,
   FolderCode,
+  Sliders,
+  Keyboard,
 } from 'lucide-react';
 import { useTheme, THEME_LIST, type ThemeName } from '../theme/ThemeManager';
 import { DEFAULT_TEMPLATES } from '../../hooks/useCompanion';
@@ -21,6 +23,9 @@ export interface AppSettings {
   compilerCommands: Record<string, string>;
   defaultTimeLimit: number;
   defaultMemoryLimit: number;
+  tabSize: number;
+  indentWithSpaces: boolean;
+  completionKey: 'tab' | 'enter' | 'both';
   lspPaths: {
     cpp: string;
     rust: string;
@@ -48,6 +53,9 @@ export const DEFAULT_SETTINGS: AppSettings = {
   },
   defaultTimeLimit: 2000,
   defaultMemoryLimit: 256,
+  tabSize: 4,
+  indentWithSpaces: true,
+  completionKey: 'tab',
   lspPaths: {
     cpp: 'clangd',
     rust: 'rust-analyzer',
@@ -82,6 +90,12 @@ export function loadStoredSettings(): AppSettings {
     return {
       ...DEFAULT_SETTINGS,
       ...parsed,
+      tabSize: typeof parsed.tabSize === 'number' ? parsed.tabSize : DEFAULT_SETTINGS.tabSize,
+      indentWithSpaces:
+        typeof parsed.indentWithSpaces === 'boolean'
+          ? parsed.indentWithSpaces
+          : DEFAULT_SETTINGS.indentWithSpaces,
+      completionKey: parsed.completionKey || DEFAULT_SETTINGS.completionKey,
       templates: { ...DEFAULT_SETTINGS.templates, ...(parsed.templates || {}) },
       compilerCommands: {
         ...DEFAULT_SETTINGS.compilerCommands,
@@ -109,7 +123,7 @@ export interface SettingsModalProps {
   onSave?: (settings: AppSettings) => void;
 }
 
-type TabType = 'general' | 'compilers' | 'lsp' | 'formatter' | 'theming';
+type TabType = 'general' | 'editor' | 'compilers' | 'lsp' | 'formatter' | 'theming' | 'hotkeys';
 
 export const SettingsModal: React.FC<SettingsModalProps> = ({
   isOpen,
@@ -205,6 +219,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
             <button
               type="button"
+              onClick={() => setActiveTab('editor')}
+              className={`flex w-full items-center space-x-2 rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
+                activeTab === 'editor'
+                  ? 'bg-[var(--theme-tab-active)] text-[var(--theme-accent)]'
+                  : 'text-[var(--theme-text-muted)] hover:bg-white/5 hover:text-[var(--theme-text)]'
+              }`}
+            >
+              <Sliders className="h-4 w-4" />
+              <span>Editor & Indentation</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => setActiveTab('compilers')}
               className={`flex w-full items-center space-x-2 rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
                 activeTab === 'compilers'
@@ -253,6 +280,19 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             >
               <Palette className="h-4 w-4" />
               <span>Theming & Mica</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setActiveTab('hotkeys')}
+              className={`flex w-full items-center space-x-2 rounded-lg px-3 py-2 text-xs font-medium transition-colors ${
+                activeTab === 'hotkeys'
+                  ? 'bg-[var(--theme-tab-active)] text-[var(--theme-accent)]'
+                  : 'text-[var(--theme-text-muted)] hover:bg-white/5 hover:text-[var(--theme-text)]'
+              }`}
+            >
+              <Keyboard className="h-4 w-4" />
+              <span>Keyboard Shortcuts</span>
             </button>
           </div>
 
@@ -336,6 +376,86 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   />
                   <span className="text-[11px] text-[var(--theme-text-muted)] mt-1 block">
                     Supports <code>{'${PROBLEM_NAME}'}</code> and <code>{'${DATE}'}</code> substitution.
+                  </span>
+                </div>
+              </div>
+            )}
+
+            {/* Editor & Indentation Tab */}
+            {activeTab === 'editor' && (
+              <div className="space-y-4">
+                <div>
+                  <label className="mb-1 block font-medium text-[var(--theme-text-muted)]">
+                    Default Tab Size (Number of spaces)
+                  </label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {[2, 4, 8].map((size) => (
+                      <button
+                        key={size}
+                        type="button"
+                        onClick={() => setSettings({ ...settings, tabSize: size })}
+                        className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+                          settings.tabSize === size
+                            ? 'border-[var(--theme-accent)] bg-[var(--theme-tab-active)] text-[var(--theme-accent)]'
+                            : 'border-[var(--theme-border)] text-[var(--theme-text-muted)] hover:bg-white/5'
+                        }`}
+                      >
+                        {size} spaces
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-1 block font-medium text-[var(--theme-text-muted)]">
+                    Indentation Mode
+                  </label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setSettings({ ...settings, indentWithSpaces: true })}
+                      className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+                        settings.indentWithSpaces
+                          ? 'border-[var(--theme-accent)] bg-[var(--theme-tab-active)] text-[var(--theme-accent)]'
+                          : 'border-[var(--theme-border)] text-[var(--theme-text-muted)] hover:bg-white/5'
+                      }`}
+                    >
+                      Spaces (Recommended)
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setSettings({ ...settings, indentWithSpaces: false })}
+                      className={`rounded-lg border px-3 py-2 text-xs font-medium transition-colors ${
+                        !settings.indentWithSpaces
+                          ? 'border-[var(--theme-accent)] bg-[var(--theme-tab-active)] text-[var(--theme-accent)]'
+                          : 'border-[var(--theme-border)] text-[var(--theme-text-muted)] hover:bg-white/5'
+                      }`}
+                    >
+                      Tab Characters (\t)
+                    </button>
+                  </div>
+                </div>
+
+                <div>
+                  <label className="mb-1 block font-medium text-[var(--theme-text-muted)]">
+                    Autocomplete Suggestion Accept Key
+                  </label>
+                  <select
+                    value={settings.completionKey}
+                    onChange={(e) =>
+                      setSettings({
+                        ...settings,
+                        completionKey: e.target.value as 'tab' | 'enter' | 'both',
+                      })
+                    }
+                    className="w-full rounded-lg border border-[var(--theme-border)] bg-black/20 px-3 py-2 font-medium text-[var(--theme-text)] focus:border-[var(--theme-accent)] focus:outline-none"
+                  >
+                    <option value="tab">Tab key only</option>
+                    <option value="enter">Enter key only</option>
+                    <option value="both">Both Tab and Enter keys</option>
+                  </select>
+                  <span className="text-[11px] text-[var(--theme-text-muted)] mt-1 block">
+                    Choose which key confirms and inserts autocomplete suggestions into code.
                   </span>
                 </div>
               </div>
@@ -746,6 +866,63 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       />
                     </div>
                   </div>
+                </div>
+              </div>
+            )}
+
+            {/* Keyboard Shortcuts Reference Tab */}
+            {activeTab === 'hotkeys' && (
+              <div className="space-y-3">
+                <div className="font-semibold text-sm text-[var(--theme-accent)]">
+                  Available Keyboard Shortcuts
+                </div>
+                <div className="rounded-lg border border-[var(--theme-border)] overflow-hidden">
+                  <table className="w-full text-left border-collapse text-xs">
+                    <thead>
+                      <tr className="border-b border-[var(--theme-border)] bg-black/30 text-[var(--theme-text-muted)]">
+                        <th className="p-2.5 font-medium">Action</th>
+                        <th className="p-2.5 font-medium">Shortcut</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[var(--theme-border)]/40 font-mono text-[11px]">
+                      <tr>
+                        <td className="p-2 text-[var(--theme-text)]">Save Source Code</td>
+                        <td className="p-2 text-[var(--theme-accent)]">Ctrl + S</td>
+                      </tr>
+                      <tr>
+                        <td className="p-2 text-[var(--theme-text)]">Open Source Code</td>
+                        <td className="p-2 text-[var(--theme-accent)]">Ctrl + O</td>
+                      </tr>
+                      <tr>
+                        <td className="p-2 text-[var(--theme-text)]">Select Next Matching Pattern (CodeBlocks)</td>
+                        <td className="p-2 text-[var(--theme-accent)]">Ctrl + E / Ctrl + D</td>
+                      </tr>
+                      <tr>
+                        <td className="p-2 text-[var(--theme-text)]">Find in Code</td>
+                        <td className="p-2 text-[var(--theme-accent)]">Ctrl + F</td>
+                      </tr>
+                      <tr>
+                        <td className="p-2 text-[var(--theme-text)]">Replace in Code</td>
+                        <td className="p-2 text-[var(--theme-accent)]">Ctrl + H</td>
+                      </tr>
+                      <tr>
+                        <td className="p-2 text-[var(--theme-text)]">Compile &amp; Run All Testcases</td>
+                        <td className="p-2 text-[var(--theme-accent)]">Ctrl + F5</td>
+                      </tr>
+                      <tr>
+                        <td className="p-2 text-[var(--theme-text)]">Run All Testcases (No Recompile)</td>
+                        <td className="p-2 text-[var(--theme-accent)]">F5</td>
+                      </tr>
+                      <tr>
+                        <td className="p-2 text-[var(--theme-text)]">Stop Execution</td>
+                        <td className="p-2 text-[var(--theme-accent)]">Shift + F5</td>
+                      </tr>
+                      <tr>
+                        <td className="p-2 text-[var(--theme-text)]">Open Settings</td>
+                        <td className="p-2 text-[var(--theme-accent)]">Ctrl + ,</td>
+                      </tr>
+                    </tbody>
+                  </table>
                 </div>
               </div>
             )}

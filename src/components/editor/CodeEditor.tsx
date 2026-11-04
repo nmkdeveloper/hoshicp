@@ -14,9 +14,16 @@ import {
   keymap,
 } from '@codemirror/view';
 import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
-import { autocompletion, completionKeymap, closeBrackets, closeBracketsKeymap } from '@codemirror/autocomplete';
+import { autocompletion, completionKeymap, closeBrackets, closeBracketsKeymap, acceptCompletion } from '@codemirror/autocomplete';
 import { linter, lintGutter, lintKeymap, setDiagnostics } from '@codemirror/lint';
-import { bracketMatching, foldGutter, foldKeymap, indentOnInput } from '@codemirror/language';
+import { bracketMatching, foldGutter, foldKeymap, indentOnInput, indentUnit } from '@codemirror/language';
+import {
+  search,
+  highlightSelectionMatches,
+  selectNextOccurrence,
+  openSearchPanel,
+  searchKeymap,
+} from '@codemirror/search';
 import { cpp } from '@codemirror/lang-cpp';
 import { rust } from '@codemirror/lang-rust';
 import { python } from '@codemirror/lang-python';
@@ -39,6 +46,9 @@ export interface CodeEditorProps {
   className?: string;
   readOnly?: boolean;
   showStatusBar?: boolean;
+  tabSize?: number;
+  indentWithSpaces?: boolean;
+  completionKey?: 'tab' | 'enter' | 'both';
 }
 
 export function getLanguageExtension(lang?: string): Extension {
@@ -76,6 +86,9 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   className = '',
   readOnly = false,
   showStatusBar = true,
+  tabSize = 4,
+  indentWithSpaces = true,
+  completionKey = 'tab',
 }) => {
   const editorContainerRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
@@ -87,6 +100,9 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   const vimCompartment = useRef(new Compartment()).current;
   const lspCompartment = useRef(new Compartment()).current;
   const readOnlyCompartment = useRef(new Compartment()).current;
+  const tabSizeCompartment = useRef(new Compartment()).current;
+  const indentUnitCompartment = useRef(new Compartment()).current;
+  const completionKeymapCompartment = useRef(new Compartment()).current;
 
   // Track Vim status
   const [vimState, setVimState] = useState<{
@@ -107,6 +123,41 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   useEffect(() => {
     if (!editorContainerRef.current) return;
 
+    const customKeymaps = [
+      indentWithTab,
+      {
+        key: 'Mod-e',
+        run: selectNextOccurrence,
+      },
+      {
+        key: 'Mod-d',
+        run: selectNextOccurrence,
+      },
+      {
+        key: 'Mod-f',
+        run: openSearchPanel,
+      },
+      ...closeBracketsKeymap,
+      ...defaultKeymap,
+      ...searchKeymap,
+      ...historyKeymap,
+      ...foldKeymap,
+      ...lintKeymap,
+    ];
+
+    const getCompletionKeys = (keyChoice: 'tab' | 'enter' | 'both') => {
+      const keys = [];
+      if (keyChoice === 'tab' || keyChoice === 'both') {
+        keys.push({ key: 'Tab', run: acceptCompletion });
+      }
+      if (keyChoice === 'enter' || keyChoice === 'both') {
+        keys.push({ key: 'Enter', run: acceptCompletion });
+      }
+      return keymap.of(keys);
+    };
+
+    const indentString = indentWithSpaces ? ' '.repeat(tabSize) : '\t';
+
     const baseExtensions: Extension[] = [
       lineNumbers(),
       highlightActiveLineGutter(),
@@ -116,6 +167,8 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
       foldGutter(),
       drawSelection(),
       dropCursor(),
+      search({ top: true }),
+      highlightSelectionMatches(),
       EditorState.allowMultipleSelections.of(true),
       indentOnInput(),
       bracketMatching(),
@@ -123,21 +176,16 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
       rectangularSelection(),
       crosshairCursor(),
       highlightActiveLine(),
-      keymap.of([
-        indentWithTab,
-        ...closeBracketsKeymap,
-        ...defaultKeymap,
-        ...historyKeymap,
-        ...foldKeymap,
-        ...completionKeymap,
-        ...lintKeymap,
-      ]),
+      keymap.of(customKeymaps),
       // Compartments
       langCompartment.of(getLanguageExtension(language)),
       themeCompartment.of(getThemeExtensions(theme, { transparent })),
       vimCompartment.of(vimMode ? vim() : []),
       lspCompartment.of(autocompletion()),
       readOnlyCompartment.of(EditorState.readOnly.of(readOnly)),
+      tabSizeCompartment.of(EditorState.tabSize.of(tabSize)),
+      indentUnitCompartment.of(indentUnit.of(indentString)),
+      completionKeymapCompartment.of(getCompletionKeys(completionKey)),
       // Change listener and Vim state tracker
       EditorView.updateListener.of((update) => {
         if (update.docChanged && onChangeRef.current) {
@@ -270,6 +318,35 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
       setVimState({ mode: 'NORMAL', subMode: undefined, keyBuffer: undefined });
     }
   }, [vimMode]);
+
+  // Dynamic Tab Size & Indentation updates
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    const indentString = indentWithSpaces ? ' '.repeat(tabSize) : '\t';
+    view.dispatch({
+      effects: [
+        tabSizeCompartment.reconfigure(EditorState.tabSize.of(tabSize)),
+        indentUnitCompartment.reconfigure(indentUnit.of(indentString)),
+      ],
+    });
+  }, [tabSize, indentWithSpaces]);
+
+  // Dynamic Autocomplete keymap updates
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    const keys = [];
+    if (completionKey === 'tab' || completionKey === 'both') {
+      keys.push({ key: 'Tab', run: acceptCompletion });
+    }
+    if (completionKey === 'enter' || completionKey === 'both') {
+      keys.push({ key: 'Enter', run: acceptCompletion });
+    }
+    view.dispatch({
+      effects: completionKeymapCompartment.reconfigure(keymap.of(keys)),
+    });
+  }, [completionKey]);
 
   // Dynamic readOnly toggle
   useEffect(() => {
