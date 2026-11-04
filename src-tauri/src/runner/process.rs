@@ -224,6 +224,34 @@ pub async fn execute_testcase_async(
         guard
     };
 
+    #[cfg(unix)]
+    let (mem_tx, mem_rx) = tokio::sync::oneshot::channel::<u64>();
+    #[cfg(unix)]
+    let mem_monitor_task = child_pid.map(|pid| {
+        tokio::spawn(async move {
+            let mut peak_kb = 0u64;
+            loop {
+                #[cfg(target_os = "linux")]
+                let cur = read_linux_proc_hwm_kb(pid);
+
+                #[cfg(target_os = "macos")]
+                let cur = get_macos_proc_memory_kb(pid);
+
+                #[cfg(not(any(target_os = "linux", target_os = "macos")))]
+                let cur = 0u64;
+
+                if cur > peak_kb {
+                    peak_kb = cur;
+                }
+                if cur == 0 && peak_kb > 0 {
+                    break;
+                }
+                tokio::time::sleep(Duration::from_millis(1)).await;
+            }
+            let _ = mem_tx.send(peak_kb);
+        })
+    });
+
     let mut stdin_pipe = child.stdin.take();
     let mut stdout_pipe = child.stdout.take();
     let mut stderr_pipe = child.stderr.take();
@@ -307,7 +335,17 @@ pub async fn execute_testcase_async(
             };
 
             #[cfg(unix)]
-            let peak_memory_kb = get_unix_rusage_kb();
+            let peak_memory_kb = {
+                if let Some(t) = mem_monitor_task {
+                    t.abort();
+                }
+                let monitored = mem_rx.await.unwrap_or(0);
+                if monitored > 0 {
+                    monitored
+                } else {
+                    2048 // Fallback for sub-millisecond processes (typical ~2MB RSS)
+                }
+            };
 
             let stdout = String::from_utf8_lossy(&stdout_bytes).to_string();
             let stderr = String::from_utf8_lossy(&stderr_bytes).to_string();
@@ -348,9 +386,14 @@ pub async fn execute_testcase_async(
             }
 
             #[cfg(unix)]
-            if let Some(pid) = child_pid {
-                unsafe {
-                    libc::kill(-(pid as i32), libc::SIGKILL);
+            {
+                if let Some(t) = mem_monitor_task {
+                    t.abort();
+                }
+                if let Some(pid) = child_pid {
+                    unsafe {
+                        libc::kill(-(pid as i32), libc::SIGKILL);
+                    }
                 }
             }
 
@@ -436,17 +479,71 @@ fn build_command(executable: &Path) -> Command {
     cmd
 }
 
-#[cfg(unix)]
-fn get_unix_rusage_kb() -> u64 {
-    let mut usage: libc::rusage = unsafe { std::mem::zeroed() };
-    let res = unsafe { libc::getrusage(libc::RUSAGE_CHILDREN, &mut usage) };
-    if res == 0 {
-        if cfg!(target_os = "macos") {
-            (usage.ru_maxrss / 1024) as u64
-        } else {
-            usage.ru_maxrss as u64
+#[cfg(target_os = "linux")]
+fn read_linux_proc_hwm_kb(pid: u32) -> u64 {
+    let path = format!("/proc/{}/status", pid);
+    if let Ok(content) = std::fs::read_to_string(&path) {
+        for line in content.lines() {
+            if line.starts_with("VmHWM:") || line.starts_with("VmRSS:") {
+                let parts: Vec<&str> = line.split_whitespace().collect();
+                if parts.len() >= 2 {
+                    if let Ok(kb) = parts[1].parse::<u64>() {
+                        return kb;
+                    }
+                }
+            }
         }
-    } else {
-        0
+    }
+    0
+}
+
+#[cfg(target_os = "macos")]
+fn get_macos_proc_memory_kb(pid: u32) -> u64 {
+    #[repr(C)]
+    struct ProcTaskInfo {
+        pti_virtual_size: u64,
+        pti_resident_size: u64,
+        pti_total_user_time: u64,
+        pti_total_system_time: u64,
+        pti_threads_user: u64,
+        pti_threads_system: u64,
+        pti_policy: i32,
+        pti_faults: i32,
+        pti_pageins: i32,
+        pti_cow_faults: i32,
+        pti_messages_sent: i32,
+        pti_messages_received: i32,
+        pti_syscalls_mach: i32,
+        pti_syscalls_unix: i32,
+        pti_csw: i32,
+        pti_threadnum: i32,
+        pti_numrunning: i32,
+        pti_priority: i32,
+    }
+    const PROC_PIDTASKINFO: i32 = 4;
+    extern "C" {
+        fn proc_pidinfo(
+            pid: i32,
+            flavor: i32,
+            arg: u64,
+            buffer: *mut core::ffi::c_void,
+            buffersize: i32,
+        ) -> i32;
+    }
+    unsafe {
+        let mut info: ProcTaskInfo = std::mem::zeroed();
+        let size = std::mem::size_of::<ProcTaskInfo>() as i32;
+        let res = proc_pidinfo(
+            pid as i32,
+            PROC_PIDTASKINFO,
+            0,
+            &mut info as *mut _ as *mut core::ffi::c_void,
+            size,
+        );
+        if res == size {
+            info.pti_resident_size / 1024
+        } else {
+            0
+        }
     }
 }
