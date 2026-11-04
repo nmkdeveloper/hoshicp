@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import React from 'react';
 import { renderToString } from 'react-dom/server';
 import App from '../App';
-import type { Problem } from '../types';
+import { type Problem, padLinesToMinimum } from '../types';
 
 describe('App Root Component', () => {
   it('renders complete HoshiCP application shell', () => {
@@ -76,5 +76,13 @@ describe('App Root Component', () => {
     expect(activeId).toBe('problem-2');
     expect(problems.length).toBe(2);
     expect(problems.find((p) => p.id === activeId)).toBeDefined();
+  });
+
+  it('pads lines to minimum line count to avoid empty editor views', () => {
+    const shortCode = 'int main() { return 0; }';
+    const padded = padLinesToMinimum(shortCode, 40);
+    const lines = padded.split('\n');
+    expect(lines.length).toBeGreaterThanOrEqual(40);
+    expect(padded.startsWith('int main() { return 0; }')).toBe(true);
   });
 });

@@ -17,7 +17,9 @@ import { TestCaseList } from '../testcases/TestCaseList';
 import { DiffViewerModal } from '../testcases/DiffViewerModal';
 import { computeTokenDiff } from '../testcases/diffHelper';
 import { useTheme } from '../theme/ThemeManager';
-import type { Problem, TestCase, TestCaseResult } from '../../types';
+import { type Problem, type TestCase, type TestCaseResult, padLinesToMinimum } from '../../types';
+import { loadStoredSettings } from '../settings/SettingsModal';
+import { DEFAULT_TEMPLATES } from '../../hooks/useCompanion';
 
 export interface AppShellProps {
   initialProblems?: Problem[];
@@ -39,7 +41,7 @@ export const DEFAULT_PROBLEMS: Problem[] = [
     group: 'Codeforces - Codeforces Round 4 (Div. 2)',
     url: 'https://codeforces.com/problemset/problem/4/A',
     language: 'cpp',
-    code: `#include <iostream>
+    code: padLinesToMinimum(`#include <iostream>
 using namespace std;
 
 int main() {
@@ -56,7 +58,7 @@ int main() {
     }
     return 0;
 }
-`,
+`, 40),
     timeLimit: 1000,
     memoryLimit: 64,
     testcases: [
@@ -200,15 +202,27 @@ export const AppShell: React.FC<AppShellProps> = ({
       onNewProblemProp();
       return;
     }
+    const settings = loadStoredSettings();
+    const lang = settings.defaultLanguage || 'cpp';
+    const rawTemplate = settings.templates?.[lang] || DEFAULT_TEMPLATES[lang] || '';
+    const probName = `Problem ${problems.length + 1}`;
+    const code = padLinesToMinimum(
+      rawTemplate
+        .replace(/\$\{PROBLEM_NAME\}/g, probName)
+        .replace(/\$\{DATE\}/g, new Date().toLocaleDateString())
+        .replace(/\$\{TIME\}/g, new Date().toLocaleTimeString()),
+      40
+    );
+
     const newId = `problem-${Date.now()}`;
     const newProblem: Problem = {
       id: newId,
-      name: `Problem ${problems.length + 1}`,
+      name: probName,
       group: 'Custom',
-      language: 'cpp',
-      code: `#include <iostream>\nusing namespace std;\n\nint main() {\n    // solution\n    return 0;\n}\n`,
-      timeLimit: 2000,
-      memoryLimit: 256,
+      language: lang,
+      code,
+      timeLimit: settings.defaultTimeLimit || 2000,
+      memoryLimit: settings.defaultMemoryLimit || 256,
       testcases: [
         { id: `tc-${Date.now()}-1`, input: '1\n', output: '1\n', custom: true },
       ],
@@ -216,6 +230,38 @@ export const AppShell: React.FC<AppShellProps> = ({
     setProblems([...problems, newProblem]);
     setActiveProblemId(newId);
     setResults({});
+  };
+
+  const handleFileDrop = async (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      const newItems: Problem[] = [];
+      for (let i = 0; i < e.dataTransfer.files.length; i++) {
+        const file = e.dataTransfer.files[i];
+        try {
+          const text = await file.text();
+          const ext = file.name.split('.').pop()?.toLowerCase() || 'cpp';
+          const lang = ext === 'py' ? 'python' : ext === 'rs' ? 'rust' : ext === 'java' ? 'java' : 'cpp';
+          const newId = `problem-${Date.now()}-${i}`;
+          newItems.push({
+            id: newId,
+            name: file.name,
+            group: 'Imported',
+            language: lang,
+            code: padLinesToMinimum(text, 40),
+            timeLimit: 2000,
+            memoryLimit: 256,
+            testcases: [{ id: `tc-${Date.now()}-${i}-1`, input: '1\n', output: '1\n', custom: true }],
+          });
+        } catch {}
+      }
+      if (newItems.length > 0) {
+        setProblems((prev) => [...prev, ...newItems]);
+        setActiveProblemId(newItems[0].id);
+        setResults({});
+      }
+    }
   };
 
   const handleCodeChange = (newCode: string) => {
@@ -473,7 +519,14 @@ export const AppShell: React.FC<AppShellProps> = ({
   };
 
   return (
-    <div className="flex h-screen w-screen flex-col overflow-hidden select-none">
+    <div
+      onDragOver={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      }}
+      onDrop={handleFileDrop}
+      className="flex h-screen w-screen flex-col overflow-hidden select-none"
+    >
       {/* Top Header Bar */}
       <HeaderBar
         problems={problems}
@@ -495,7 +548,7 @@ export const AppShell: React.FC<AppShellProps> = ({
         {/* Left Side: Code Editor & Bottom Console Drawer */}
         <div className="flex flex-1 flex-col overflow-hidden min-w-0">
           {/* Editor Container */}
-          <div className="relative flex-1 overflow-hidden">
+          <div className="relative flex-1 overflow-hidden backdrop-blur-md">
             <CodeEditor
               value={activeProblem.code}
               onChange={handleCodeChange}

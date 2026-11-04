@@ -300,3 +300,29 @@ pub fn save_sidecar_file(
 pub fn load_sidecar_file(source_path: String) -> Result<SidecarData, String> {
     crate::storage::load_sidecar(Path::new(&source_path)).map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+pub fn window_close(window: tauri::Window) {
+    let _ = window.close();
+}
+
+#[tauri::command]
+pub fn window_minimize(window: tauri::Window) {
+    let _ = window.minimize();
+}
+
+#[tauri::command]
+pub fn window_toggle_maximize(window: tauri::Window) {
+    if let Ok(is_max) = window.is_maximized() {
+        if is_max {
+            let _ = window.unmaximize();
+        } else {
+            let _ = window.maximize();
+        }
+    }
+}
+
+#[tauri::command]
+pub fn window_start_dragging(window: tauri::Window) {
+    let _ = window.start_dragging();
+}

@@ -351,7 +351,7 @@ fn build_command(executable: &Path) -> Command {
         .unwrap_or("")
         .to_ascii_lowercase();
 
-    match ext.as_str() {
+    let mut cmd = match ext.as_str() {
         "py" => {
             let mut cmd = Command::new(if cfg!(windows) { "python" } else { "python3" });
             cmd.arg(executable);
@@ -373,7 +373,12 @@ fn build_command(executable: &Path) -> Command {
             cmd
         }
         _ => Command::new(executable),
-    }
+    };
+
+    #[cfg(windows)]
+    cmd.creation_flags(0x08000000);
+
+    cmd
 }
 
 #[cfg(unix)]

@@ -1,5 +1,5 @@
 import { useEffect } from 'react';
-import type { Problem, TestCase } from '../types';
+import { type Problem, type TestCase, padLinesToMinimum } from '../types';
 
 export const DEFAULT_TEMPLATES: Record<string, string> = {
   cpp: `#include <iostream>
@@ -108,9 +108,10 @@ export function useCompanion({
 
           const filePath = formatProblemFileName(name, group, ext, pathTemplate);
           const baseTemplate = templates[defaultLanguage] || DEFAULT_TEMPLATES[defaultLanguage] || '';
-          const code = baseTemplate
+          const rawCode = baseTemplate
             .replace(/\$\{PROBLEM_NAME\}/g, name)
             .replace(/\$\{DATE\}/g, new Date().toLocaleDateString());
+          const code = padLinesToMinimum(rawCode, 40);
 
           const newProblem: Problem = {
             id: `problem-${Date.now()}-${Math.floor(Math.random() * 1000)}`,

@@ -38,6 +38,12 @@ pub fn check_testlib(
 
     cmd.arg(input).arg(output).arg(answer);
 
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000);
+    }
+
     match cmd.output() {
         Ok(proc_out) => {
             let stderr_msg = String::from_utf8_lossy(&proc_out.stderr).trim().to_string();

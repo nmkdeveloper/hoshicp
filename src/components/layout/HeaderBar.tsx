@@ -68,23 +68,59 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
 
   const handleMinimize = async () => {
     try {
-      const { getCurrentWindow } = await import('@tauri-apps/api/window');
-      await getCurrentWindow().minimize();
-    } catch {}
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('window_minimize');
+    } catch {
+      try {
+        const { getCurrentWindow } = await import('@tauri-apps/api/window');
+        await getCurrentWindow().minimize();
+      } catch {}
+    }
   };
 
   const handleMaximize = async () => {
     try {
-      const { getCurrentWindow } = await import('@tauri-apps/api/window');
-      await getCurrentWindow().toggleMaximize();
-    } catch {}
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('window_toggle_maximize');
+    } catch {
+      try {
+        const { getCurrentWindow } = await import('@tauri-apps/api/window');
+        await getCurrentWindow().toggleMaximize();
+      } catch {}
+    }
   };
 
   const handleClose = async () => {
     try {
-      const { getCurrentWindow } = await import('@tauri-apps/api/window');
-      await getCurrentWindow().close();
-    } catch {}
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('window_close');
+    } catch {
+      try {
+        const { getCurrentWindow } = await import('@tauri-apps/api/window');
+        await getCurrentWindow().close();
+      } catch {}
+    }
+  };
+
+  const handleHeaderMouseDown = async (e: React.MouseEvent<HTMLElement>) => {
+    if (e.button === 0) {
+      const target = e.target as HTMLElement;
+      if (
+        target.hasAttribute('data-tauri-drag-region') ||
+        target.tagName === 'HEADER' ||
+        target.classList.contains('glass-header')
+      ) {
+        try {
+          const { invoke } = await import('@tauri-apps/api/core');
+          await invoke('window_start_dragging');
+        } catch {
+          try {
+            const { getCurrentWindow } = await import('@tauri-apps/api/window');
+            await getCurrentWindow().startDragging();
+          } catch {}
+        }
+      }
+    }
   };
 
   const isBusy = isCompiling || isRunning;
@@ -92,6 +128,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   return (
     <header
       data-tauri-drag-region
+      onMouseDown={handleHeaderMouseDown}
       className="glass-header flex h-12 w-full select-none items-center justify-between border-b border-[var(--theme-border)] px-3 text-[var(--theme-text)] z-30"
     >
       {/* Left: App Logo & Mascot Icon + Multi-tab Workspace */}

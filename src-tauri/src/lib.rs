@@ -28,6 +28,10 @@ pub fn run() {
             crate::commands::format_source_code,
             crate::commands::save_sidecar_file,
             crate::commands::load_sidecar_file,
+            crate::commands::window_close,
+            crate::commands::window_minimize,
+            crate::commands::window_toggle_maximize,
+            crate::commands::window_start_dragging,
             crate::updater::check_for_updates,
             crate::updater::download_and_install_update,
         ])

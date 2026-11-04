@@ -125,6 +125,11 @@ pub fn compile_source(
 }
 
 fn run_command(mut cmd: Command, expected_output: &Path) -> Result<PathBuf, CompileError> {
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000);
+    }
     match cmd.output() {
         Ok(output) => {
             let stdout = String::from_utf8_lossy(&output.stdout).to_string();

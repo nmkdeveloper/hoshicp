@@ -114,11 +114,16 @@ pub async fn start_lsp_proxy_handle(
         .port();
 
     // 2. Spawn LSP child process immediately to fail fast on missing binary
-    let mut child = Command::new(lsp_binary)
-        .args(args)
+    let mut cmd = Command::new(lsp_binary);
+    cmd.args(args)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::null())
+        .stderr(Stdio::null());
+
+    #[cfg(windows)]
+    cmd.creation_flags(0x08000000);
+
+    let mut child = cmd
         .spawn()
         .map_err(|e| {
             if e.kind() == std::io::ErrorKind::NotFound {

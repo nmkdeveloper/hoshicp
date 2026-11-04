@@ -33,11 +33,19 @@ pub fn format_source_with_cli(
     binary: &str,
     args: &[&str],
 ) -> Result<String, FormatterError> {
-    let mut child = Command::new(binary)
-        .args(args)
+    let mut cmd = Command::new(binary);
+    cmd.args(args)
         .stdin(Stdio::piped())
         .stdout(Stdio::piped())
-        .stderr(Stdio::piped())
+        .stderr(Stdio::piped());
+
+    #[cfg(windows)]
+    {
+        use std::os::windows::process::CommandExt;
+        cmd.creation_flags(0x08000000);
+    }
+
+    let mut child = cmd
         .spawn()
         .map_err(|e| {
             if e.kind() == std::io::ErrorKind::NotFound {

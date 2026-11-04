@@ -179,7 +179,9 @@ export function getThemeExtensions(
     {
       '&': {
         color: spec.foreground,
-        backgroundColor: isTransparent ? 'transparent !important' : spec.background,
+        backgroundColor: isTransparent
+          ? (spec.dark ? 'rgba(22, 20, 31, 0.78) !important' : 'rgba(255, 255, 255, 0.85) !important')
+          : spec.background,
         fontSize: '14px',
         fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace",
       },
@@ -195,11 +197,15 @@ export function getThemeExtensions(
         backgroundColor: spec.selection,
       },
       '.cm-panels': {
-        backgroundColor: isTransparent ? 'rgba(20, 20, 30, 0.8)' : spec.background,
+        backgroundColor: isTransparent
+          ? (spec.dark ? 'rgba(20, 20, 30, 0.88)' : 'rgba(250, 250, 250, 0.92)')
+          : spec.background,
         color: spec.foreground,
       },
       '.cm-gutters': {
-        backgroundColor: isTransparent ? 'transparent !important' : spec.gutterBackground,
+        backgroundColor: isTransparent
+          ? (spec.dark ? 'rgba(18, 16, 26, 0.88) !important' : 'rgba(245, 245, 248, 0.92) !important')
+          : spec.gutterBackground,
         color: spec.gutterForeground,
         borderRight: isTransparent
           ? '1px solid rgba(255, 255, 255, 0.08)'
