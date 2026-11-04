@@ -17,6 +17,7 @@ import {
 } from 'lucide-react';
 import type { TestCase } from '../../types';
 import type { TestCaseResult, TestcaseStatus } from './types';
+import { getExitCodeDiagnosis } from '../../utils/errorDiagnostics';
 
 export interface TestCaseItemProps {
   testcase: TestCase;
@@ -259,27 +260,55 @@ export const TestCaseItem: React.FC<TestCaseItemProps> = ({
             </div>
           )}
 
-          {/* Runtime Error (RE) Detailed Crash Box */}
-          {result?.status === 'RuntimeError' && (
-            <div className="space-y-1 pt-1">
-              <div className="flex items-center justify-between text-[11px] font-semibold text-rose-400">
-                <span className="flex items-center space-x-1">
-                  <AlertOctagon className="h-3.5 w-3.5 text-rose-400" />
-                  <span>Runtime Error (RE) Details</span>
-                </span>
-                {result.exit_code !== undefined && result.exit_code !== null && (
-                  <span className="font-mono text-[10px] rounded bg-rose-500/20 px-1.5 py-0.5 border border-rose-500/30">
-                    Exit Code: {result.exit_code}
+          {/* Runtime Error (RE) Detailed Crash Box (CodeBlocks style) */}
+          {result?.status === 'RuntimeError' && (() => {
+            const diag = getExitCodeDiagnosis(result.exit_code);
+            return (
+              <div className="space-y-1.5 pt-1.5">
+                <div className="flex items-center justify-between text-[11px] font-semibold text-rose-400">
+                  <span className="flex items-center space-x-1">
+                    <AlertOctagon className="h-3.5 w-3.5 text-rose-400 shrink-0" />
+                    <span>{diag ? diag.title : 'Runtime Error (RE)'}</span>
                   </span>
-                )}
+                  <span className="font-mono text-[10px] rounded bg-rose-500/20 px-2 py-0.5 border border-rose-500/40 text-rose-300">
+                    {diag ? diag.hexCode : `Exit code: ${result.exit_code ?? 'Unknown'}`}
+                  </span>
+                </div>
+
+                <div className="rounded-md border border-rose-500/40 bg-rose-950/30 p-2.5 space-y-2 text-xs text-rose-200">
+                  {diag && (
+                    <div className="text-[11px] text-rose-300/90 font-medium">
+                      {diag.summary}
+                    </div>
+                  )}
+
+                  {result.stderr && result.stderr.trim().length > 0 && (
+                    <div>
+                      <div className="text-[10px] uppercase font-bold text-rose-400/80 mb-0.5 tracking-wider">
+                        Program Stderr Output
+                      </div>
+                      <pre className="p-1.5 rounded bg-black/40 font-mono text-[11px] text-rose-200 max-h-32 overflow-auto whitespace-pre-wrap">
+                        {result.stderr}
+                      </pre>
+                    </div>
+                  )}
+
+                  {diag && diag.causes && diag.causes.length > 0 && (
+                    <div>
+                      <div className="text-[10px] uppercase font-bold text-rose-400/80 mb-0.5 tracking-wider">
+                        Potential Causes &amp; Fixes
+                      </div>
+                      <ul className="list-disc list-inside space-y-0.5 text-[11px] text-rose-200/90">
+                        {diag.causes.map((cause, cIdx) => (
+                          <li key={cIdx}>{cause}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
+                </div>
               </div>
-              <pre className="rounded-md border border-rose-500/50 bg-rose-950/40 p-2.5 font-mono text-xs text-rose-200 max-h-40 overflow-auto whitespace-pre-wrap leading-relaxed shadow-inner">
-                {result.stderr && result.stderr.trim().length > 0
-                  ? result.stderr
-                  : `Process crashed with non-zero exit code (${result.exit_code ?? 'Abnormal Termination'}).\nCommon causes: Segmentation fault (array out of bounds), Division by zero, Stack overflow (deep recursion), or Uncaught exception.`}
-              </pre>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Stderr if present (for non-RE results) */}
           {result?.status !== 'RuntimeError' && result?.stderr && result.stderr.trim().length > 0 && (

@@ -22,6 +22,7 @@ import { loadStoredSettings, type AppSettings } from '../settings/SettingsModal'
 import { DEFAULT_TEMPLATES } from '../../hooks/useCompanion';
 import { parseTestcaseFiles, type RawTestcaseFile } from '../testcases/testcaseParser';
 import { matchesShortcut } from '../../utils/shortcuts';
+import { getExitCodeDiagnosis } from '../../utils/errorDiagnostics';
 
 export interface AppShellProps {
   initialProblems?: Problem[];
@@ -366,7 +367,17 @@ export const AppShell: React.FC<AppShellProps> = ({
             logOutput += `--- Standard Error (stderr) ---\n${res.stderr}\n`;
           }
           if (res.status === 'RuntimeError') {
-            logOutput += `[Runtime Error (RE)] Process terminated abnormally with non-zero exit code.\n`;
+            const diag = getExitCodeDiagnosis(res.exit_code);
+            logOutput += `\n[Runtime Error (RE) Diagnosis]\n`;
+            if (diag) {
+              logOutput += `Fault: ${diag.title} (${diag.name})\n`;
+              logOutput += `Details: ${diag.summary}\n`;
+              if (diag.causes && diag.causes.length > 0) {
+                logOutput += `Potential Causes:\n${diag.causes.map((c) => `  - ${c}`).join('\n')}\n`;
+              }
+            } else {
+              logOutput += `Process terminated abnormally with non-zero exit code.\n`;
+            }
           }
           setExecutionLogs((prev) => prev + logOutput);
         } catch (err: any) {
@@ -415,10 +426,18 @@ export const AppShell: React.FC<AppShellProps> = ({
               };
               if (r.status === 'RuntimeError') {
                 hasRuntimeError = true;
+                const diag = getExitCodeDiagnosis(r.exit_code);
                 const exitInfo = r.exit_code !== null ? `(Exit code: ${r.exit_code})` : '';
-                runtimeErrorLogs += `[Runtime Error on Case #${idx + 1}] ${exitInfo}\n${
-                  r.stderr || 'Abnormal termination (segfault / out of bounds access / uncaught exception)'
-                }\n`;
+                runtimeErrorLogs += `\n[Runtime Error on Case #${idx + 1}] ${diag ? `${diag.title} [${diag.hexCode}]` : exitInfo}\n`;
+                if (r.stderr && r.stderr.trim().length > 0) {
+                  runtimeErrorLogs += `Stderr Output:\n${r.stderr}\n`;
+                }
+                if (diag) {
+                  runtimeErrorLogs += `Diagnostics: ${diag.summary}\n`;
+                  if (diag.causes && diag.causes.length > 0) {
+                    runtimeErrorLogs += `Possible Fixes:\n${diag.causes.map((c) => `  * ${c}`).join('\n')}\n`;
+                  }
+                }
               }
             }
           });
@@ -845,6 +864,8 @@ export const AppShell: React.FC<AppShellProps> = ({
               indentWithSpaces={settings.indentWithSpaces}
               completionKey={settings.completionKey}
               shortcuts={settings.shortcuts}
+              fontSize={settings.fontSize}
+              fontFamily={settings.fontFamily}
               className="h-full w-full"
             />
           </div>

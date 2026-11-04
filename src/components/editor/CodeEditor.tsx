@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { EditorState, Compartment, Prec } from '@codemirror/state';
+import { EditorState, Compartment, Prec, type StateCommand } from '@codemirror/state';
 import type { Extension } from '@codemirror/state';
 import {
   EditorView,
@@ -51,6 +51,8 @@ export interface CodeEditorProps {
   indentWithSpaces?: boolean;
   completionKey?: 'tab' | 'enter' | 'both';
   shortcuts?: ShortcutMap;
+  fontSize?: number;
+  fontFamily?: string;
 }
 
 export function getLanguageExtension(lang?: string): Extension {
@@ -72,6 +74,19 @@ export function getLanguageExtension(lang?: string): Extension {
   }
 }
 
+export const selectCleanCode: StateCommand = ({ state, dispatch }) => {
+  const docText = state.doc.toString();
+  const trimmedEnd = docText.replace(/[\r\n\s]+$/, '').length;
+  dispatch(
+    state.update({
+      selection: { anchor: 0, head: Math.max(trimmedEnd, 0) },
+      userEvent: 'select',
+      scrollIntoView: false,
+    })
+  );
+  return true;
+};
+
 const calculateNeededLines = (height?: number): number => {
   const byHeight = height && height > 0 ? Math.ceil(height / 20) + 20 : 120;
   return Math.max(byHeight, 120);
@@ -92,6 +107,8 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   indentWithSpaces = true,
   completionKey = 'tab',
   shortcuts = DEFAULT_SHORTCUTS,
+  fontSize = 14,
+  fontFamily,
 }) => {
   const editorContainerRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
@@ -134,6 +151,11 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
 
       return keymap.of([
         indentWithTab,
+        {
+          key: 'Mod-a',
+          run: selectCleanCode,
+          preventDefault: true,
+        },
         {
           key: selectNextKey,
           run: selectNextOccurrence,
@@ -197,13 +219,32 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
       shortcutsCompartment.of(getCustomKeybindings(shortcuts)),
       // Compartments
       langCompartment.of(getLanguageExtension(language)),
-      themeCompartment.of(getThemeExtensions(theme, { transparent })),
+      themeCompartment.of(
+        getThemeExtensions(theme, { transparent, fontSize, fontFamily })
+      ),
       vimCompartment.of(vimMode ? vim() : []),
       lspCompartment.of(autocompletion()),
       readOnlyCompartment.of(EditorState.readOnly.of(readOnly)),
       tabSizeCompartment.of(EditorState.tabSize.of(tabSize)),
       indentUnitCompartment.of(indentUnit.of(indentString)),
       completionKeymapCompartment.of(getCompletionKeys(completionKey)),
+      // Clean copy event handler: ensure copied text strips padding lines
+      EditorView.domEventHandlers({
+        copy(event, view) {
+          const { from, to } = view.state.selection.main;
+          if (from === to) return false;
+          const selectedText = view.state.sliceDoc(from, to);
+          const cleanText = stripPaddingLines(selectedText);
+          if (selectedText.endsWith('\n') && selectedText !== cleanText) {
+            if (event.clipboardData) {
+              event.preventDefault();
+              event.clipboardData.setData('text/plain', cleanText);
+              return true;
+            }
+          }
+          return false;
+        },
+      }),
       // Change listener and Vim state tracker
       EditorView.updateListener.of((update) => {
         if (update.docChanged && onChangeRef.current) {
@@ -316,14 +357,16 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     });
   }, [language]);
 
-  // Dynamic theme & transparency updates
+  // Dynamic theme, transparency, font & size updates
   useEffect(() => {
     const view = viewRef.current;
     if (!view) return;
     view.dispatch({
-      effects: themeCompartment.reconfigure(getThemeExtensions(theme, { transparent })),
+      effects: themeCompartment.reconfigure(
+        getThemeExtensions(theme, { transparent, fontSize, fontFamily })
+      ),
     });
-  }, [theme, transparent]);
+  }, [theme, transparent, fontSize, fontFamily]);
 
   // Dynamic Vim mode toggle
   useEffect(() => {

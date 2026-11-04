@@ -13,6 +13,8 @@ export type ThemeName =
 
 export interface ThemeOptions {
   transparent?: boolean;
+  fontSize?: number;
+  fontFamily?: string;
 }
 
 interface ThemeDefinition {
@@ -184,8 +186,8 @@ export function getThemeExtensions(
         backgroundColor: isTransparent
           ? (spec.dark ? 'rgba(22, 20, 31, 0.78) !important' : 'rgba(255, 255, 255, 0.85) !important')
           : spec.background,
-        fontSize: '14px',
-        fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace",
+        fontSize: options.fontSize ? `${options.fontSize}px` : '14px',
+        fontFamily: options.fontFamily || "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace",
       },
       '.cm-content': {
         caretColor: spec.caret,

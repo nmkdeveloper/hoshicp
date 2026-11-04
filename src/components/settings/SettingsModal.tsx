@@ -33,6 +33,8 @@ export interface AppSettings {
   tabSize: number;
   indentWithSpaces: boolean;
   completionKey: 'tab' | 'enter' | 'both';
+  fontSize: number;
+  fontFamily: string;
   shortcuts: ShortcutMap;
   lspPaths: {
     cpp: string;
@@ -64,6 +66,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   tabSize: 4,
   indentWithSpaces: true,
   completionKey: 'tab',
+  fontSize: 14,
+  fontFamily: "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace",
   shortcuts: DEFAULT_SHORTCUTS,
   lspPaths: {
     cpp: 'clangd',
@@ -105,6 +109,8 @@ export function loadStoredSettings(): AppSettings {
           ? parsed.indentWithSpaces
           : DEFAULT_SETTINGS.indentWithSpaces,
       completionKey: parsed.completionKey || DEFAULT_SETTINGS.completionKey,
+      fontSize: typeof parsed.fontSize === 'number' ? parsed.fontSize : DEFAULT_SETTINGS.fontSize,
+      fontFamily: parsed.fontFamily || DEFAULT_SETTINGS.fontFamily,
       shortcuts: { ...DEFAULT_SHORTCUTS, ...(parsed.shortcuts || {}) },
       templates: { ...DEFAULT_SETTINGS.templates, ...(parsed.templates || {}) },
       compilerCommands: {
@@ -424,6 +430,66 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
             {/* Editor & Indentation Tab */}
             {activeTab === 'editor' && (
               <div className="space-y-4">
+                {/* Font Size & Family */}
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="mb-1 block font-medium text-[var(--theme-text-muted)]">
+                      Font Size ({settings.fontSize || 14}px)
+                    </label>
+                    <input
+                      type="range"
+                      min={11}
+                      max={26}
+                      step={1}
+                      value={settings.fontSize || 14}
+                      onChange={(e) =>
+                        setSettings({ ...settings, fontSize: Number(e.target.value) })
+                      }
+                      className="w-full accent-[var(--theme-accent)]"
+                    />
+                    <div className="flex justify-between text-[10px] text-[var(--theme-text-muted)] font-mono mt-0.5">
+                      <span>11px</span>
+                      <span>14px</span>
+                      <span>18px</span>
+                      <span>26px</span>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="mb-1 block font-medium text-[var(--theme-text-muted)]">
+                      Font Family
+                    </label>
+                    <select
+                      value={
+                        [
+                          "'JetBrains Mono', monospace",
+                          "'Fira Code', monospace",
+                          "'Cascadia Code', monospace",
+                          "Consolas, monospace",
+                          "'Source Code Pro', monospace",
+                          "'Courier New', monospace",
+                        ].includes(settings.fontFamily)
+                          ? settings.fontFamily
+                          : 'custom'
+                      }
+                      onChange={(e) => {
+                        if (e.target.value !== 'custom') {
+                          setSettings({ ...settings, fontFamily: e.target.value });
+                        }
+                      }}
+                      className="w-full rounded-lg border border-[var(--theme-border)] bg-black/20 px-3 py-1.5 font-medium text-[var(--theme-text)] focus:border-[var(--theme-accent)] focus:outline-none text-xs"
+                    >
+                      <option value="'JetBrains Mono', monospace">JetBrains Mono (Default)</option>
+                      <option value="'Fira Code', monospace">Fira Code</option>
+                      <option value="'Cascadia Code', monospace">Cascadia Code</option>
+                      <option value="Consolas, monospace">Consolas</option>
+                      <option value="'Source Code Pro', monospace">Source Code Pro</option>
+                      <option value="'Courier New', monospace">Courier New</option>
+                      <option value="custom">Custom Font...</option>
+                    </select>
+                  </div>
+                </div>
+
                 <div>
                   <label className="mb-1 block font-medium text-[var(--theme-text-muted)]">
                     Default Tab Size (Number of spaces)
