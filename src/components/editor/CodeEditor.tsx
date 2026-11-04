@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { EditorState, Compartment } from '@codemirror/state';
+import { EditorState, Compartment, Prec } from '@codemirror/state';
 import type { Extension } from '@codemirror/state';
 import {
   EditorView,
@@ -171,7 +171,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
       if (keyChoice === 'enter' || keyChoice === 'both') {
         keys.push({ key: 'Enter', run: acceptCompletion });
       }
-      return keymap.of(keys);
+      return Prec.highest(keymap.of(keys));
     };
 
     const indentString = indentWithSpaces ? ' '.repeat(tabSize) : '\t';
@@ -362,7 +362,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
       keys.push({ key: 'Enter', run: acceptCompletion });
     }
     view.dispatch({
-      effects: completionKeymapCompartment.reconfigure(keymap.of(keys)),
+      effects: completionKeymapCompartment.reconfigure(Prec.highest(keymap.of(keys))),
     });
   }, [completionKey]);
 
