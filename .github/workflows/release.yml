@@ -146,9 +146,8 @@ jobs:
           '
 
       - name: Upload unified latest.json to release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          files: latest.json
+        shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.ref_name }}" latest.json --clobber
