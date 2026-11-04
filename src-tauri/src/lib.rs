@@ -35,6 +35,7 @@ pub fn run() {
             crate::commands::dialog_open_code_file,
             crate::commands::dialog_save_code_file,
             crate::commands::dialog_open_testcase_file,
+            crate::commands::dialog_open_testcase_files,
             crate::commands::dialog_save_testcase_file,
             crate::commands::write_file_to_path,
             crate::updater::check_for_updates,

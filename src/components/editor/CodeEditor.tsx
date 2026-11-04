@@ -61,8 +61,8 @@ export function getLanguageExtension(lang?: string): Extension {
 }
 
 const calculateNeededLines = (height?: number): number => {
-  const byHeight = height && height > 0 ? Math.ceil(height / 20) + 20 : 100;
-  return Math.max(byHeight, 100);
+  const byHeight = height && height > 0 ? Math.ceil(height / 20) + 20 : 120;
+  return Math.max(byHeight, 120);
 };
 
 export const CodeEditor: React.FC<CodeEditorProps> = ({

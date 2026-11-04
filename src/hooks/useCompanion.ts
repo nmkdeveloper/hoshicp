@@ -111,7 +111,7 @@ export function useCompanion({
           const rawCode = baseTemplate
             .replace(/\$\{PROBLEM_NAME\}/g, name)
             .replace(/\$\{DATE\}/g, new Date().toLocaleDateString());
-          const code = padLinesToMinimum(rawCode, 40);
+          const code = padLinesToMinimum(rawCode, 120);
 
           const newProblem: Problem = {
             id: `problem-${Date.now()}-${Math.floor(Math.random() * 1000)}`,

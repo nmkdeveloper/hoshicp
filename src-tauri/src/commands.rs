@@ -376,7 +376,7 @@ pub async fn dialog_save_code_file(default_name: String, content: String) -> Res
 #[tauri::command]
 pub async fn dialog_open_testcase_file() -> Result<Option<String>, String> {
     let file = rfd::AsyncFileDialog::new()
-        .add_filter("Testcase / Sidecar", &["json", "cpe", "in", "txt"])
+        .add_filter("Testcase / Sidecar", &["json", "cpe", "in", "out", "ans", "txt"])
         .add_filter("All Files", &["*"])
         .pick_file()
         .await;
@@ -387,6 +387,34 @@ pub async fn dialog_open_testcase_file() -> Result<Option<String>, String> {
     } else {
         Ok(None)
     }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct TestcaseFileItem {
+    pub path: String,
+    pub name: String,
+    pub content: String,
+}
+
+#[tauri::command]
+pub async fn dialog_open_testcase_files() -> Result<Vec<TestcaseFileItem>, String> {
+    let files = rfd::AsyncFileDialog::new()
+        .add_filter("Testcase Files", &["in", "out", "ans", "txt", "json", "cpe"])
+        .add_filter("All Files", &["*"])
+        .pick_files()
+        .await;
+
+    let mut results = Vec::new();
+    if let Some(handles) = files {
+        for handle in handles {
+            let path = handle.path().to_string_lossy().to_string();
+            let name = handle.file_name();
+            if let Ok(content) = std::fs::read_to_string(handle.path()) {
+                results.push(TestcaseFileItem { path, name, content });
+            }
+        }
+    }
+    Ok(results)
 }
 
 #[tauri::command]

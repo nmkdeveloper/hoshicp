@@ -37,7 +37,7 @@ export interface Problem {
   testcases: TestCase[];
 }
 
-export function padLinesToMinimum(code: string, minLines = 100): string {
+export function padLinesToMinimum(code: string, minLines = 120): string {
   const lineCount = code.split('\n').length;
   if (lineCount < minLines) {
     return code + '\n'.repeat(minLines - lineCount);

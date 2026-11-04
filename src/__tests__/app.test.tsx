@@ -9,7 +9,7 @@ describe('App Root Component', () => {
     const html = renderToString(<App />);
 
     expect(html).toContain('HoshiCP');
-    expect(html).toContain('A. Watermelon');
+    expect(html).toContain('main.cpp');
     expect(html).toContain('Compile &amp; Run');
     expect(html).toContain('Terminal');
   });

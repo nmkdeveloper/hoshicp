@@ -205,7 +205,6 @@ export function getThemeExtensions(
         color: spec.foreground,
       },
       '.cm-gutters': {
-        minHeight: '100% !important',
         backgroundColor: isTransparent
           ? (spec.dark ? 'rgba(18, 16, 26, 0.88) !important' : 'rgba(245, 245, 248, 0.92) !important')
           : spec.gutterBackground,
@@ -222,7 +221,6 @@ export function getThemeExtensions(
         color: spec.gutterActiveForeground,
       },
       '.cm-scroller': {
-        height: '100% !important',
         overflow: 'auto',
       },
     },

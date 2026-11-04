@@ -20,6 +20,7 @@ import { useTheme } from '../theme/ThemeManager';
 import { type Problem, type TestCase, type TestCaseResult, padLinesToMinimum, stripPaddingLines } from '../../types';
 import { loadStoredSettings } from '../settings/SettingsModal';
 import { DEFAULT_TEMPLATES } from '../../hooks/useCompanion';
+import { parseTestcaseFiles, type RawTestcaseFile } from '../testcases/testcaseParser';
 
 export interface AppShellProps {
   initialProblems?: Problem[];
@@ -33,40 +34,35 @@ export interface AppShellProps {
   onFileSave?: (problem: Problem) => void;
 }
 
-export const DEFAULT_PROBLEMS: Problem[] = [
-  {
-    id: 'problem-1',
-    name: 'A. Watermelon',
-    group: 'Codeforces - Codeforces Round 4 (Div. 2)',
-    url: 'https://codeforces.com/problemset/problem/4/A',
-    language: 'cpp',
-    code: padLinesToMinimum(`#include <iostream>
-using namespace std;
+export function createDefaultProblem(): Problem {
+  const settings = loadStoredSettings();
+  const lang = (settings.defaultLanguage as any) || 'cpp';
+  const rawTemplate = settings.templates?.[lang] || DEFAULT_TEMPLATES[lang] || '';
+  const ext = lang === 'python' ? 'py' : lang === 'rust' ? 'rs' : lang === 'java' ? 'java' : 'cpp';
+  const fileName = `main.${ext}`;
+  const code = padLinesToMinimum(
+    rawTemplate
+      .replace(/\$\{PROBLEM_NAME\}/g, fileName)
+      .replace(/\$\{DATE\}/g, new Date().toLocaleDateString())
+      .replace(/\$\{TIME\}/g, new Date().toLocaleTimeString()),
+    120
+  );
 
-int main() {
-    ios_base::sync_with_stdio(false);
-    cin.tie(NULL);
-    
-    int w;
-    if (cin >> w) {
-        if (w > 2 && w % 2 == 0) {
-            cout << "YES\\n";
-        } else {
-            cout << "NO\\n";
-        }
-    }
-    return 0;
-}
-`, 40),
-    timeLimit: 1000,
-    memoryLimit: 64,
+  return {
+    id: 'problem-1',
+    name: fileName,
+    group: 'Custom',
+    language: lang,
+    code,
+    timeLimit: settings.defaultTimeLimit || 2000,
+    memoryLimit: settings.defaultMemoryLimit || 256,
     testcases: [
-      { id: 'tc-1', input: '8\n', output: 'YES\n', custom: false },
-      { id: 'tc-2', input: '2\n', output: 'NO\n', custom: false },
-      { id: 'tc-3', input: '5\n', output: 'NO\n', custom: false },
+      { id: 'tc-1', input: '', output: '', custom: true },
     ],
-  },
-];
+  };
+}
+
+export const DEFAULT_PROBLEMS: Problem[] = [createDefaultProblem()];
 
 export const AppShell: React.FC<AppShellProps> = ({
   initialProblems = DEFAULT_PROBLEMS,
@@ -209,7 +205,7 @@ export const AppShell: React.FC<AppShellProps> = ({
         .replace(/\$\{PROBLEM_NAME\}/g, probName)
         .replace(/\$\{DATE\}/g, new Date().toLocaleDateString())
         .replace(/\$\{TIME\}/g, new Date().toLocaleTimeString()),
-      40
+      120
     );
 
     const newId = `problem-${Date.now()}`;
@@ -247,7 +243,7 @@ export const AppShell: React.FC<AppShellProps> = ({
             name: file.name,
             group: 'Imported',
             language: lang,
-            code: padLinesToMinimum(text, 40),
+            code: padLinesToMinimum(text, 120),
             timeLimit: 2000,
             memoryLimit: 256,
             testcases: [{ id: `tc-${Date.now()}-${i}-1`, input: '1\n', output: '1\n', custom: true }],
@@ -534,7 +530,11 @@ export const AppShell: React.FC<AppShellProps> = ({
     try {
       const { invoke } = await import('@tauri-apps/api/core');
       if (activeProblem.filePath) {
+        const fileName = activeProblem.filePath.split(/[/\\]/).pop() || defaultName;
         await invoke('write_file_to_path', { path: activeProblem.filePath, content: cleanCode });
+        setProblems((prev) =>
+          prev.map((p) => (p.id === activeProblemId ? { ...p, name: fileName } : p))
+        );
         setCompilerLogs((prev) => prev + `[Saved] Code saved to ${activeProblem.filePath}\n`);
         return;
       }
@@ -543,13 +543,21 @@ export const AppShell: React.FC<AppShellProps> = ({
         content: cleanCode,
       });
       if (savedPath) {
+        const fileName = savedPath.split(/[/\\]/).pop() || defaultName;
         setProblems((prev) =>
-          prev.map((p) => (p.id === activeProblemId ? { ...p, filePath: savedPath } : p))
+          prev.map((p) =>
+            p.id === activeProblemId ? { ...p, filePath: savedPath, name: fileName } : p
+          )
         );
         setCompilerLogs((prev) => prev + `[Saved] Code saved to ${savedPath}\n`);
       }
     } catch {
       // Browser fallback: download blob
+      setProblems((prev) =>
+        prev.map((p) =>
+          p.id === activeProblemId ? { ...p, name: defaultName } : p
+        )
+      );
       const blob = new Blob([cleanCode], { type: 'text/plain' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -641,61 +649,53 @@ export const AppShell: React.FC<AppShellProps> = ({
 
   const handleOpenTestcases = async () => {
     if (!activeProblem) return;
-    const parseAndApply = (content: string) => {
-      try {
-        const parsed = JSON.parse(content);
-        let list: TestCase[] = [];
-        if (Array.isArray(parsed)) {
-          list = parsed.map((item, idx) => ({
-            id: item.id || `tc-imported-${Date.now()}-${idx}`,
-            input: item.input || '',
-            output: item.output || '',
-            custom: true,
-          }));
-        } else if (parsed.tests && Array.isArray(parsed.tests)) {
-          list = parsed.tests.map((item: any, idx: number) => ({
-            id: `tc-imported-${Date.now()}-${idx}`,
-            input: item.input || '',
-            output: item.output || '',
-            custom: true,
-          }));
-        } else if (parsed.testcases && Array.isArray(parsed.testcases)) {
-          list = parsed.testcases.map((item: any, idx: number) => ({
-            id: item.id || `tc-imported-${Date.now()}-${idx}`,
-            input: item.input || '',
-            output: item.output || '',
-            custom: true,
-          }));
-        }
-        if (list.length > 0) {
-          setProblems((prev) =>
-            prev.map((p) => (p.id === activeProblemId ? { ...p, testcases: list } : p))
-          );
-          setResults({});
-          setExecutionLogs((prev) => prev + `[Imported] Successfully loaded ${list.length} testcases\n`);
-        }
-      } catch (e: any) {
-        setExecutionLogs((prev) => prev + `[Error] Failed to parse testcase file: ${e.message}\n`);
-      }
-    };
 
     try {
       const { invoke } = await import('@tauri-apps/api/core');
-      const content = await invoke<string | null>('dialog_open_testcase_file');
-      if (content) {
-        parseAndApply(content);
-        return;
+      const files = await invoke<any[]>('dialog_open_testcase_files');
+      if (files && files.length > 0) {
+        const parsedList = parseTestcaseFiles(files);
+        if (parsedList.length > 0) {
+          setProblems((prev) =>
+            prev.map((p) => (p.id === activeProblemId ? { ...p, testcases: parsedList } : p))
+          );
+          setResults({});
+          setExecutionLogs(
+            (prev) =>
+              prev +
+              `[Imported] Successfully loaded ${parsedList.length} testcase(s) from ${files.length} file(s)\n`
+          );
+          return;
+        }
       }
     } catch {}
 
+    // Browser fallback with multi-file support
     const input = document.createElement('input');
     input.type = 'file';
-    input.accept = '.json,.txt,.cpe';
+    input.multiple = true;
+    input.accept = '.in,.out,.ans,.txt,.json,.cpe';
     input.onchange = async (e) => {
-      const file = (e.target as HTMLInputElement).files?.[0];
-      if (file) {
-        const text = await file.text();
-        parseAndApply(text);
+      const fileList = (e.target as HTMLInputElement).files;
+      if (fileList && fileList.length > 0) {
+        const rawFiles: RawTestcaseFile[] = [];
+        for (let i = 0; i < fileList.length; i++) {
+          const file = fileList[i];
+          const content = await file.text();
+          rawFiles.push({ name: file.name, content });
+        }
+        const parsedList = parseTestcaseFiles(rawFiles);
+        if (parsedList.length > 0) {
+          setProblems((prev) =>
+            prev.map((p) => (p.id === activeProblemId ? { ...p, testcases: parsedList } : p))
+          );
+          setResults({});
+          setExecutionLogs(
+            (prev) =>
+              prev +
+              `[Imported] Successfully loaded ${parsedList.length} testcase(s) from ${rawFiles.length} file(s)\n`
+          );
+        }
       }
     };
     input.click();
@@ -748,6 +748,7 @@ export const AppShell: React.FC<AppShellProps> = ({
           {/* Editor Container */}
           <div className="relative flex-1 overflow-hidden backdrop-blur-md">
             <CodeEditor
+              key={activeProblem.id}
               value={activeProblem.code}
               onChange={handleCodeChange}
               language={activeProblem.language}

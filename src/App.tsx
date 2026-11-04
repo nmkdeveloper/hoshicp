@@ -1,6 +1,6 @@
 import React, { useState, useCallback } from 'react';
 import { ThemeProvider } from './components/theme/ThemeManager';
-import { AppShell, DEFAULT_PROBLEMS } from './components/layout/AppShell';
+import { AppShell, createDefaultProblem } from './components/layout/AppShell';
 import {
   SettingsModal,
   loadStoredSettings,
@@ -10,10 +10,8 @@ import { useCompanion } from './hooks/useCompanion';
 import { type Problem, padLinesToMinimum } from './types';
 
 export default function App() {
-  const [problems, setProblems] = useState<Problem[]>(DEFAULT_PROBLEMS);
-  const [activeProblemId, setActiveProblemId] = useState<string>(
-    DEFAULT_PROBLEMS[0]?.id || 'problem-1'
-  );
+  const [problems, setProblems] = useState<Problem[]>(() => [createDefaultProblem()]);
+  const [activeProblemId, setActiveProblemId] = useState<string>('problem-1');
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [settings, setSettings] = useState<AppSettings>(() => loadStoredSettings());
 
@@ -40,14 +38,15 @@ export default function App() {
 
   const handleCreateNewProblem = useCallback(() => {
     const lang = settings.defaultLanguage || 'cpp';
+    const ext = lang === 'python' ? 'py' : lang === 'rust' ? 'rs' : lang === 'java' ? 'java' : 'cpp';
+    const probName = `solution_${problems.length + 1}.${ext}`;
     const rawTemplate = settings.templates?.[lang] || '';
-    const probName = `Problem ${problems.length + 1}`;
     const code = padLinesToMinimum(
       rawTemplate
         .replace(/\$\{PROBLEM_NAME\}/g, probName)
         .replace(/\$\{DATE\}/g, new Date().toLocaleDateString())
         .replace(/\$\{TIME\}/g, new Date().toLocaleTimeString()),
-      40
+      120
     );
     const newId = `problem-${Date.now()}`;
     const newProblem: Problem = {
@@ -59,7 +58,7 @@ export default function App() {
       timeLimit: settings.defaultTimeLimit || 2000,
       memoryLimit: settings.defaultMemoryLimit || 256,
       testcases: [
-        { id: `tc-${Date.now()}-1`, input: '1\n', output: '1\n', custom: true },
+        { id: `tc-${Date.now()}-1`, input: '', output: '', custom: true },
       ],
     };
     setProblems((prev) => [...prev, newProblem]);
