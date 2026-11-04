@@ -38,6 +38,7 @@ pub fn run() {
             crate::commands::dialog_open_testcase_files,
             crate::commands::dialog_save_testcase_file,
             crate::commands::write_file_to_path,
+            crate::commands::get_system_fonts,
             crate::updater::check_for_updates,
             crate::updater::download_and_install_update,
         ])

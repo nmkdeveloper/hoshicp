@@ -28,6 +28,61 @@ pub struct ExecutionResult {
 const MAX_OUTPUT_BYTES: usize = 16 * 1024 * 1024; // 16 MB
 
 #[cfg(windows)]
+struct ProcessHandleGuard {
+    handle: windows_sys::Win32::Foundation::HANDLE,
+}
+
+#[cfg(windows)]
+unsafe impl Send for ProcessHandleGuard {}
+#[cfg(windows)]
+unsafe impl Sync for ProcessHandleGuard {}
+
+#[cfg(windows)]
+impl ProcessHandleGuard {
+    fn new(pid: u32) -> Option<Self> {
+        use windows_sys::Win32::System::Threading::*;
+        unsafe {
+            let h = OpenProcess(PROCESS_QUERY_INFORMATION | PROCESS_VM_READ, 0, pid);
+            if h.is_null() {
+                None
+            } else {
+                Some(ProcessHandleGuard { handle: h })
+            }
+        }
+    }
+
+    fn get_peak_working_set_kb(&self) -> u64 {
+        use windows_sys::Win32::System::ProcessStatus::*;
+        unsafe {
+            let mut counters: PROCESS_MEMORY_COUNTERS = std::mem::zeroed();
+            counters.cb = std::mem::size_of::<PROCESS_MEMORY_COUNTERS>() as u32;
+            if K32GetProcessMemoryInfo(
+                self.handle,
+                &mut counters,
+                std::mem::size_of::<PROCESS_MEMORY_COUNTERS>() as u32,
+            ) != 0
+            {
+                (counters.PeakWorkingSetSize / 1024) as u64
+            } else {
+                0
+            }
+        }
+    }
+}
+
+#[cfg(windows)]
+impl Drop for ProcessHandleGuard {
+    fn drop(&mut self) {
+        use windows_sys::Win32::Foundation::CloseHandle;
+        unsafe {
+            if !self.handle.is_null() {
+                CloseHandle(self.handle);
+            }
+        }
+    }
+}
+
+#[cfg(windows)]
 struct JobGuard {
     handle: windows_sys::Win32::Foundation::HANDLE,
 }
@@ -39,7 +94,7 @@ unsafe impl Sync for JobGuard {}
 
 #[cfg(windows)]
 impl JobGuard {
-    fn new(memory_limit_mb: u64) -> Option<Self> {
+    fn new(_memory_limit_mb: u64) -> Option<Self> {
         use windows_sys::Win32::System::JobObjects::*;
         unsafe {
             let handle = CreateJobObjectW(std::ptr::null(), std::ptr::null());
@@ -49,14 +104,6 @@ impl JobGuard {
 
             let mut info: JOBOBJECT_EXTENDED_LIMIT_INFORMATION = std::mem::zeroed();
             info.BasicLimitInformation.LimitFlags = JOB_OBJECT_LIMIT_KILL_ON_JOB_CLOSE;
-
-            if memory_limit_mb > 0 {
-                info.BasicLimitInformation.LimitFlags |=
-                    JOB_OBJECT_LIMIT_PROCESS_MEMORY | JOB_OBJECT_LIMIT_JOB_MEMORY;
-                let limit_bytes = (memory_limit_mb as usize) * 1024 * 1024;
-                info.ProcessMemoryLimit = limit_bytes;
-                info.JobMemoryLimit = limit_bytes;
-            }
 
             SetInformationJobObject(
                 handle,
@@ -166,6 +213,9 @@ pub async fn execute_testcase_async(
     let child_pid = child.id();
 
     #[cfg(windows)]
+    let proc_guard = child_pid.and_then(ProcessHandleGuard::new);
+
+    #[cfg(windows)]
     let job_guard = {
         let guard = JobGuard::new(memory_limit_mb);
         if let (Some(ref g), Some(pid)) = (&guard, child_pid) {
@@ -246,10 +296,15 @@ pub async fn execute_testcase_async(
             let elapsed_ms = start_time.elapsed().as_millis() as u64;
 
             #[cfg(windows)]
-            let peak_memory_kb = job_guard
-                .as_ref()
-                .map(|g| g.get_peak_memory_kb())
-                .unwrap_or(0);
+            let peak_memory_kb = {
+                let mut peak_kb = proc_guard.as_ref().map(|g| g.get_peak_working_set_kb()).unwrap_or(0);
+                if peak_kb == 0 {
+                    if let Some(ref g) = job_guard {
+                        peak_kb = g.get_peak_memory_kb();
+                    }
+                }
+                peak_kb
+            };
 
             #[cfg(unix)]
             let peak_memory_kb = get_unix_rusage_kb();

@@ -438,3 +438,73 @@ pub async fn dialog_save_testcase_file(default_name: String, content: String) ->
 pub fn write_file_to_path(path: String, content: String) -> Result<(), String> {
     std::fs::write(Path::new(&path), content).map_err(|e| e.to_string())
 }
+
+#[tauri::command]
+pub fn get_system_fonts() -> Result<Vec<String>, String> {
+    #[cfg(windows)]
+    {
+        use std::collections::BTreeSet;
+        use winreg::enums::*;
+        use winreg::RegKey;
+
+        let mut fonts = BTreeSet::new();
+
+        let hives = [
+            (HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts"),
+            (HKEY_CURRENT_USER, r"Software\Microsoft\Windows NT\CurrentVersion\Fonts"),
+        ];
+
+        for (hive, subkey) in hives {
+            let root = RegKey::predef(hive);
+            if let Ok(key) = root.open_subkey(subkey) {
+                for value in key.enum_values().flatten() {
+                    let mut name = value.0;
+                    if let Some(pos) = name.find('(') {
+                        name = name[..pos].trim().to_string();
+                    }
+                    if let Some(pos) = name.find('&') {
+                        name = name[..pos].trim().to_string();
+                    }
+                    name = name.trim().to_string();
+                    if !name.is_empty() && name.len() < 64 {
+                        fonts.insert(name);
+                    }
+                }
+            }
+        }
+
+        let defaults = [
+            "Consolas",
+            "Cascadia Code",
+            "Cascadia Mono",
+            "Courier New",
+            "Fira Code",
+            "JetBrains Mono",
+            "Lucida Console",
+            "Segoe UI",
+            "Source Code Pro",
+        ];
+        for d in defaults {
+            fonts.insert(d.to_string());
+        }
+
+        Ok(fonts.into_iter().collect())
+    }
+
+    #[cfg(not(windows))]
+    {
+        Ok(vec![
+            "JetBrains Mono".into(),
+            "Fira Code".into(),
+            "Cascadia Code".into(),
+            "Consolas".into(),
+            "Menlo".into(),
+            "Monaco".into(),
+            "Courier New".into(),
+            "Source Code Pro".into(),
+            "DejaVu Sans Mono".into(),
+            "Ubuntu Mono".into(),
+            "SF Mono".into(),
+        ])
+    }
+}

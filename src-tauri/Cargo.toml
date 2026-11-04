@@ -25,10 +25,12 @@ futures-util = "0.3.34"
 rfd = "0.15"
 
 [target.'cfg(windows)'.dependencies]
+winreg = "0.56"
 windows-sys = { version = "0.61", features = [
     "Win32_Foundation",
     "Win32_System_JobObjects",
     "Win32_System_Threading",
+    "Win32_System_ProcessStatus",
 ] }
 
 [target.'cfg(unix)'.dependencies]

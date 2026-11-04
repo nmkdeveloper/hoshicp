@@ -166,6 +166,36 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [activeTemplateLang, setActiveTemplateLang] = useState<string>('cpp');
   const [savedBadge, setSavedBadge] = useState<boolean>(false);
   const [recordingAction, setRecordingAction] = useState<ShortcutAction | null>(null);
+  const [systemFonts, setSystemFonts] = useState<string[]>([]);
+  const [fontSearch, setFontSearch] = useState<string>('');
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchFonts = async () => {
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        const fonts = await invoke<string[]>('get_system_fonts');
+        if (isMounted && fonts && fonts.length > 0) {
+          setSystemFonts(fonts);
+          return;
+        }
+      } catch {}
+
+      if (typeof window !== 'undefined' && 'queryLocalFonts' in window) {
+        try {
+          const localFonts = await (window as any).queryLocalFonts();
+          const names = Array.from(new Set(localFonts.map((f: any) => f.family))) as string[];
+          if (isMounted && names.length > 0) {
+            setSystemFonts(names.sort());
+          }
+        } catch {}
+      }
+    };
+    fetchFonts();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   useEffect(() => {
     if (!recordingAction) return;
@@ -456,37 +486,54 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                   </div>
 
                   <div>
-                    <label className="mb-1 block font-medium text-[var(--theme-text-muted)]">
-                      Font Family
+                    <label className="mb-1 flex items-center justify-between font-medium text-[var(--theme-text-muted)]">
+                      <span>Font Family</span>
+                      <span className="text-[10px] text-[var(--theme-accent)]">
+                        {systemFonts.length > 0
+                          ? `${systemFonts.length} system fonts detected`
+                          : 'Installed fonts'}
+                      </span>
                     </label>
-                    <select
-                      value={
-                        [
-                          "'JetBrains Mono', monospace",
-                          "'Fira Code', monospace",
-                          "'Cascadia Code', monospace",
-                          "Consolas, monospace",
-                          "'Source Code Pro', monospace",
-                          "'Courier New', monospace",
-                        ].includes(settings.fontFamily)
-                          ? settings.fontFamily
-                          : 'custom'
-                      }
-                      onChange={(e) => {
-                        if (e.target.value !== 'custom') {
-                          setSettings({ ...settings, fontFamily: e.target.value });
+
+                    <div className="space-y-1.5">
+                      <select
+                        value={settings.fontFamily}
+                        onChange={(e) =>
+                          setSettings({ ...settings, fontFamily: e.target.value })
                         }
-                      }}
-                      className="w-full rounded-lg border border-[var(--theme-border)] bg-black/20 px-3 py-1.5 font-medium text-[var(--theme-text)] focus:border-[var(--theme-accent)] focus:outline-none text-xs"
-                    >
-                      <option value="'JetBrains Mono', monospace">JetBrains Mono (Default)</option>
-                      <option value="'Fira Code', monospace">Fira Code</option>
-                      <option value="'Cascadia Code', monospace">Cascadia Code</option>
-                      <option value="Consolas, monospace">Consolas</option>
-                      <option value="'Source Code Pro', monospace">Source Code Pro</option>
-                      <option value="'Courier New', monospace">Courier New</option>
-                      <option value="custom">Custom Font...</option>
-                    </select>
+                        className="w-full rounded-lg border border-[var(--theme-border)] bg-black/20 px-3 py-1.5 font-medium text-[var(--theme-text)] focus:border-[var(--theme-accent)] focus:outline-none text-xs"
+                      >
+                        <optgroup label="Popular Monospace Fonts">
+                          <option value="'JetBrains Mono', monospace">JetBrains Mono (Default)</option>
+                          <option value="'Fira Code', monospace">Fira Code</option>
+                          <option value="'Cascadia Code', monospace">Cascadia Code</option>
+                          <option value="Consolas, monospace">Consolas</option>
+                          <option value="'Source Code Pro', monospace">Source Code Pro</option>
+                          <option value="'Courier New', monospace">Courier New</option>
+                        </optgroup>
+
+                        {systemFonts.length > 0 && (
+                          <optgroup label="Installed Machine Fonts">
+                            {systemFonts.map((fontName) => (
+                              <option key={fontName} value={`'${fontName}', monospace`}>
+                                {fontName}
+                              </option>
+                            ))}
+                          </optgroup>
+                        )}
+                      </select>
+
+                      <input
+                        type="text"
+                        value={settings.fontFamily}
+                        onChange={(e) =>
+                          setSettings({ ...settings, fontFamily: e.target.value })
+                        }
+                        placeholder="Or enter any custom font name installed on PC..."
+                        className="w-full rounded-lg border border-[var(--theme-border)] bg-black/30 px-3 py-1 font-mono text-[11px] text-[var(--theme-text)] focus:border-[var(--theme-accent)] focus:outline-none"
+                        title="You can type or paste any exact font family name installed on your system"
+                      />
+                    </div>
                   </div>
                 </div>
 
