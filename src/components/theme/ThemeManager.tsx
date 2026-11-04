@@ -175,7 +175,9 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
         data-theme={theme}
         className="relative flex h-screen w-screen overflow-hidden text-[var(--theme-text)] transition-colors duration-150"
         style={{
-          backgroundColor: transparent ? 'transparent' : 'var(--theme-bg)',
+          backgroundColor: transparent
+            ? (theme === 'classic-light' ? 'rgba(248, 250, 252, 0.96)' : 'rgba(22, 20, 31, 0.96)')
+            : 'var(--theme-bg)',
         }}
       >
         {/* Custom Wallpaper Backdrop */}

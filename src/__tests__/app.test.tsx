@@ -11,7 +11,6 @@ describe('App Root Component', () => {
     expect(html).toContain('HoshiCP');
     expect(html).toContain('A. Watermelon');
     expect(html).toContain('Compile &amp; Run');
-    expect(html).toContain('Stress Test');
     expect(html).toContain('Terminal');
   });
 

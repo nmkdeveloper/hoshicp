@@ -326,3 +326,87 @@ pub fn window_toggle_maximize(window: tauri::Window) {
 pub fn window_start_dragging(window: tauri::Window) {
     let _ = window.start_dragging();
 }
+
+#[derive(Debug, Serialize, Deserialize)]
+pub struct FileOpenResult {
+    pub path: String,
+    pub name: String,
+    pub content: String,
+}
+
+#[tauri::command]
+pub async fn dialog_open_code_file() -> Result<Option<FileOpenResult>, String> {
+    let file = rfd::AsyncFileDialog::new()
+        .add_filter("Source Code", &["cpp", "cc", "c", "cxx", "py", "rs", "java", "txt"])
+        .add_filter("All Files", &["*"])
+        .pick_file()
+        .await;
+
+    if let Some(f) = file {
+        let path = f.path().to_string_lossy().to_string();
+        let name = f.file_name();
+        let content = std::fs::read_to_string(f.path()).map_err(|e| e.to_string())?;
+        Ok(Some(FileOpenResult { path, name, content }))
+    } else {
+        Ok(None)
+    }
+}
+
+#[tauri::command]
+pub async fn dialog_save_code_file(default_name: String, content: String) -> Result<Option<String>, String> {
+    let file = rfd::AsyncFileDialog::new()
+        .set_file_name(&default_name)
+        .add_filter("C++ Source", &["cpp", "cc"])
+        .add_filter("Rust Source", &["rs"])
+        .add_filter("Python Script", &["py"])
+        .add_filter("Java Source", &["java"])
+        .add_filter("All Files", &["*"])
+        .save_file()
+        .await;
+
+    if let Some(f) = file {
+        let path = f.path().to_path_buf();
+        std::fs::write(&path, content).map_err(|e| e.to_string())?;
+        Ok(Some(path.to_string_lossy().to_string()))
+    } else {
+        Ok(None)
+    }
+}
+
+#[tauri::command]
+pub async fn dialog_open_testcase_file() -> Result<Option<String>, String> {
+    let file = rfd::AsyncFileDialog::new()
+        .add_filter("Testcase / Sidecar", &["json", "cpe", "in", "txt"])
+        .add_filter("All Files", &["*"])
+        .pick_file()
+        .await;
+
+    if let Some(f) = file {
+        let content = std::fs::read_to_string(f.path()).map_err(|e| e.to_string())?;
+        Ok(Some(content))
+    } else {
+        Ok(None)
+    }
+}
+
+#[tauri::command]
+pub async fn dialog_save_testcase_file(default_name: String, content: String) -> Result<Option<String>, String> {
+    let file = rfd::AsyncFileDialog::new()
+        .set_file_name(&default_name)
+        .add_filter("JSON / Sidecar", &["json", "cpe", "txt"])
+        .save_file()
+        .await;
+
+    if let Some(f) = file {
+        let path = f.path().to_path_buf();
+        std::fs::write(&path, content).map_err(|e| e.to_string())?;
+        Ok(Some(path.to_string_lossy().to_string()))
+    } else {
+        Ok(None)
+    }
+}
+
+#[tauri::command]
+pub fn write_file_to_path(path: String, content: String) -> Result<(), String> {
+    std::fs::write(Path::new(&path), content).map_err(|e| e.to_string())
+}

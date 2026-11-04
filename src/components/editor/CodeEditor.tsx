@@ -26,6 +26,7 @@ import { vim, getCM } from '@replit/codemirror-vim';
 import { getThemeExtensions, type ThemeName } from './themes';
 import { VimStatus } from './vimStatus';
 import { LspClient } from './lspClient';
+import { padLinesToMinimum, stripPaddingLines } from '../../types';
 
 export interface CodeEditorProps {
   value: string;
@@ -58,6 +59,11 @@ export function getLanguageExtension(lang?: string): Extension {
       return cpp();
   }
 }
+
+const calculateNeededLines = (height?: number): number => {
+  const byHeight = height && height > 0 ? Math.ceil(height / 20) + 20 : 100;
+  return Math.max(byHeight, 100);
+};
 
 export const CodeEditor: React.FC<CodeEditorProps> = ({
   value,
@@ -136,9 +142,10 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
       EditorView.updateListener.of((update) => {
         if (update.docChanged && onChangeRef.current) {
           const docString = update.state.doc.toString();
-          onChangeRef.current(docString);
+          const cleanDoc = stripPaddingLines(docString);
+          onChangeRef.current(cleanDoc);
           if (lspClientRef.current) {
-            lspClientRef.current.notifyChange(docString);
+            lspClientRef.current.notifyChange(cleanDoc);
           }
         }
 
@@ -168,8 +175,11 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
       }),
     ];
 
+    const needed = calculateNeededLines(editorContainerRef.current?.clientHeight);
+    const initialDoc = padLinesToMinimum(value, needed);
+
     const state = EditorState.create({
-      doc: value,
+      doc: initialDoc,
       extensions: baseExtensions,
     });
 
@@ -180,7 +190,34 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
 
     viewRef.current = view;
 
+    // Dynamically adjust lines when container size changes
+    let observer: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined' && editorContainerRef.current) {
+      observer = new ResizeObserver((entries) => {
+        for (const entry of entries) {
+          const height = entry.contentRect.height;
+          if (height > 0 && viewRef.current) {
+            const reqLines = calculateNeededLines(height);
+            const currentLines = viewRef.current.state.doc.lines;
+            if (currentLines < reqLines) {
+              const addCount = reqLines - currentLines;
+              viewRef.current.dispatch({
+                changes: {
+                  from: viewRef.current.state.doc.length,
+                  insert: '\n'.repeat(addCount),
+                },
+              });
+            }
+          }
+        }
+      });
+      observer.observe(editorContainerRef.current);
+    }
+
     return () => {
+      if (observer) {
+        observer.disconnect();
+      }
       view.destroy();
       viewRef.current = null;
     };
@@ -189,12 +226,17 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   // Synchronize external value changes
   useEffect(() => {
     const view = viewRef.current;
-    if (!view) return;
+    if (!view || value === undefined) return;
 
     const currentDoc = view.state.doc.toString();
-    if (value !== currentDoc) {
+    const currentClean = stripPaddingLines(currentDoc);
+    const newClean = stripPaddingLines(value);
+
+    if (currentClean !== newClean) {
+      const needed = calculateNeededLines(editorContainerRef.current?.clientHeight);
+      const paddedNew = padLinesToMinimum(value, needed);
       view.dispatch({
-        changes: { from: 0, to: currentDoc.length, insert: value },
+        changes: { from: 0, to: currentDoc.length, insert: paddedNew },
       });
     }
   }, [value]);

@@ -120,3 +120,21 @@
   background-size: 260px;
   opacity: var(--theme-mascot-opacity, 0.14);
 }
+
+/* CodeMirror 6 Full Height & Layout rules */
+.cm-editor {
+  height: 100% !important;
+  max-height: 100% !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.cm-scroller {
+  flex: 1 1 0% !important;
+  height: 100% !important;
+  overflow: auto !important;
+}
+
+.cm-gutters {
+  min-height: 100% !important;
+}

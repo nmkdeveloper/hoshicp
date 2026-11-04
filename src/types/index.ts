@@ -37,10 +37,15 @@ export interface Problem {
   testcases: TestCase[];
 }
 
-export function padLinesToMinimum(code: string, minLines = 40): string {
+export function padLinesToMinimum(code: string, minLines = 100): string {
   const lineCount = code.split('\n').length;
   if (lineCount < minLines) {
     return code + '\n'.repeat(minLines - lineCount);
   }
   return code;
+}
+
+export function stripPaddingLines(code: string): string {
+  const trimmed = code.replace(/[\r\n\s]+$/, '');
+  return trimmed.length > 0 ? trimmed + '\n' : '';
 }

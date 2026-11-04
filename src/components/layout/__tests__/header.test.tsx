@@ -38,7 +38,6 @@ describe('HeaderBar Component', () => {
           onCompileAndRun={() => {}}
           onRun={() => {}}
           onStop={() => {}}
-          onOpenStressTest={() => {}}
           onOpenSettings={() => {}}
         />
       </ThemeProvider>
@@ -51,6 +50,5 @@ describe('HeaderBar Component', () => {
     expect(html).toContain('Compile &amp; Run');
     expect(html).toContain('Run');
     expect(html).toContain('Stop');
-    expect(html).toContain('Stress Test');
   });
 });

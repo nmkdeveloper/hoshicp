@@ -178,6 +178,8 @@ export function getThemeExtensions(
   const editorTheme = EditorView.theme(
     {
       '&': {
+        height: '100% !important',
+        maxHeight: '100% !important',
         color: spec.foreground,
         backgroundColor: isTransparent
           ? (spec.dark ? 'rgba(22, 20, 31, 0.78) !important' : 'rgba(255, 255, 255, 0.85) !important')
@@ -203,6 +205,7 @@ export function getThemeExtensions(
         color: spec.foreground,
       },
       '.cm-gutters': {
+        minHeight: '100% !important',
         backgroundColor: isTransparent
           ? (spec.dark ? 'rgba(18, 16, 26, 0.88) !important' : 'rgba(245, 245, 248, 0.92) !important')
           : spec.gutterBackground,
@@ -219,6 +222,7 @@ export function getThemeExtensions(
         color: spec.gutterActiveForeground,
       },
       '.cm-scroller': {
+        height: '100% !important',
         overflow: 'auto',
       },
     },

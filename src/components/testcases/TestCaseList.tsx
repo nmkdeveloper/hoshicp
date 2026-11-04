@@ -1,5 +1,5 @@
 import React from 'react';
-import { Play, Plus, CheckCircle2, AlertTriangle, Layers } from 'lucide-react';
+import { Play, Plus, CheckCircle2, AlertTriangle, Layers, Upload, Download } from 'lucide-react';
 import type { TestCase } from '../../types';
 import type { TestCaseResult } from './types';
 import { TestCaseItem } from './TestCaseItem';
@@ -15,6 +15,8 @@ export interface TestCaseListProps {
   onRunAll: () => void;
   onRunSingle: (id: string) => void;
   onOpenDiff: (expected: string, actual: string, title: string) => void;
+  onOpenTestcases?: () => void;
+  onSaveTestcases?: () => void;
   className?: string;
 }
 
@@ -29,6 +31,8 @@ export const TestCaseList: React.FC<TestCaseListProps> = ({
   onRunAll,
   onRunSingle,
   onOpenDiff,
+  onOpenTestcases,
+  onSaveTestcases,
   className = '',
 }) => {
   // Compute summary stats
@@ -94,6 +98,33 @@ export const TestCaseList: React.FC<TestCaseListProps> = ({
             <Plus className="h-3.5 w-3.5" />
             <span>Add</span>
           </button>
+
+          {/* Import / Open Testcases */}
+          {onOpenTestcases && (
+            <button
+              type="button"
+              onClick={onOpenTestcases}
+              className="flex items-center space-x-1 rounded-lg border border-[var(--theme-border)] bg-white/5 px-2 py-1 text-xs font-medium text-[var(--theme-text)] hover:bg-white/10 transition-colors"
+              title="Open / Import Testcases File"
+            >
+              <Upload className="h-3 w-3" />
+              <span className="hidden xl:inline">Open</span>
+            </button>
+          )}
+
+          {/* Export / Save Testcases */}
+          {onSaveTestcases && (
+            <button
+              type="button"
+              disabled={testcases.length === 0}
+              onClick={onSaveTestcases}
+              className="flex items-center space-x-1 rounded-lg border border-[var(--theme-border)] bg-white/5 px-2 py-1 text-xs font-medium text-[var(--theme-text)] hover:bg-white/10 disabled:opacity-30 transition-colors"
+              title="Save / Export Testcases"
+            >
+              <Download className="h-3 w-3" />
+              <span className="hidden xl:inline">Save</span>
+            </button>
+          )}
         </div>
       </div>
 

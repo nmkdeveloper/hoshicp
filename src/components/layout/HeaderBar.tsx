@@ -3,7 +3,6 @@ import {
   Play,
   PlaySquare,
   Square,
-  Flame,
   Palette,
   Settings,
   Plus,
@@ -14,6 +13,8 @@ import {
   Check,
   Eye,
   EyeOff,
+  FolderOpen,
+  Save,
 } from 'lucide-react';
 import { useTheme, THEME_LIST, type ThemeName } from '../theme/ThemeManager';
 import type { Problem } from '../../types';
@@ -29,7 +30,8 @@ export interface HeaderBarProps {
   onCompileAndRun: () => void;
   onRun: () => void;
   onStop: () => void;
-  onOpenStressTest: () => void;
+  onSaveCode?: () => void;
+  onOpenCode?: () => void;
   onOpenSettings: () => void;
 }
 
@@ -44,7 +46,8 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   onCompileAndRun,
   onRun,
   onStop,
-  onOpenStressTest,
+  onSaveCode,
+  onOpenCode,
   onOpenSettings,
 }) => {
   const { theme, setTheme, transparent, setTransparent, showMascot, setShowMascot } = useTheme();
@@ -229,15 +232,26 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             <span className="hidden md:inline">Stop</span>
           </button>
 
-          {/* Stress Test */}
+          {/* Open Code */}
           <button
             type="button"
-            onClick={onOpenStressTest}
-            className="flex items-center space-x-1 rounded-lg border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-300 hover:bg-amber-500/20 transition-colors"
-            title="Open Stress Testing Panel"
+            onClick={onOpenCode}
+            className="flex items-center space-x-1 rounded-lg border border-[var(--theme-border)] bg-white/5 px-2 py-1 text-xs font-medium text-[var(--theme-text)] hover:bg-white/10 transition-colors"
+            title="Open Source Code File (Ctrl+O)"
           >
-            <Flame className="h-3.5 w-3.5" />
-            <span className="hidden lg:inline">Stress Test</span>
+            <FolderOpen className="h-3.5 w-3.5" />
+            <span className="hidden lg:inline">Open</span>
+          </button>
+
+          {/* Save Code */}
+          <button
+            type="button"
+            onClick={onSaveCode}
+            className="flex items-center space-x-1 rounded-lg border border-[var(--theme-border)] bg-white/5 px-2 py-1 text-xs font-medium text-[var(--theme-text)] hover:bg-white/10 transition-colors"
+            title="Save Source Code (Ctrl+S)"
+          >
+            <Save className="h-3.5 w-3.5" />
+            <span className="hidden lg:inline">Save</span>
           </button>
         </div>
 

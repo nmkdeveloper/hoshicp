@@ -17,7 +17,7 @@ import { TestCaseList } from '../testcases/TestCaseList';
 import { DiffViewerModal } from '../testcases/DiffViewerModal';
 import { computeTokenDiff } from '../testcases/diffHelper';
 import { useTheme } from '../theme/ThemeManager';
-import { type Problem, type TestCase, type TestCaseResult, padLinesToMinimum } from '../../types';
+import { type Problem, type TestCase, type TestCaseResult, padLinesToMinimum, stripPaddingLines } from '../../types';
 import { loadStoredSettings } from '../settings/SettingsModal';
 import { DEFAULT_TEMPLATES } from '../../hooks/useCompanion';
 
@@ -30,7 +30,6 @@ export interface AppShellProps {
   onNewProblem?: () => void;
   onProblemsChange?: (problems: Problem[]) => void;
   onOpenSettings?: () => void;
-  onOpenStressTest?: () => void;
   onFileSave?: (problem: Problem) => void;
 }
 
@@ -78,7 +77,6 @@ export const AppShell: React.FC<AppShellProps> = ({
   onNewProblem: onNewProblemProp,
   onProblemsChange,
   onOpenSettings,
-  onOpenStressTest,
   onFileSave,
 }) => {
   const { theme, transparent } = useTheme();
@@ -269,7 +267,7 @@ export const AppShell: React.FC<AppShellProps> = ({
       prev.map((p) => (p.id === activeProblemId ? { ...p, code: newCode } : p))
     );
     if (activeProblem && onFileSave) {
-      onFileSave({ ...activeProblem, code: newCode });
+      onFileSave({ ...activeProblem, code: stripPaddingLines(newCode) });
     }
   };
 
@@ -356,7 +354,7 @@ export const AppShell: React.FC<AppShellProps> = ({
         // Try invoking Tauri backend runner if available
         const { invoke } = await import('@tauri-apps/api/core');
         const res = await invoke<any>('run_all_testcases', {
-          sourceCode: activeProblem.code,
+          sourceCode: stripPaddingLines(activeProblem.code),
           language: activeProblem.language,
           testcases: testsToRun,
           timeLimitMs: activeProblem.timeLimit,
@@ -434,7 +432,7 @@ export const AppShell: React.FC<AppShellProps> = ({
     try {
       const { invoke } = await import('@tauri-apps/api/core');
       await invoke('compile_source', {
-        sourceCode: activeProblem.code,
+        sourceCode: stripPaddingLines(activeProblem.code),
         language: activeProblem.language,
       });
       setCompilerLogs((prev) => prev + `Compilation successful! 0 errors.\n`);
@@ -518,6 +516,205 @@ export const AppShell: React.FC<AppShellProps> = ({
     } catch {}
   };
 
+  const handleSaveCode = async () => {
+    if (!activeProblem) return;
+    const cleanCode = stripPaddingLines(activeProblem.code);
+    const ext =
+      activeProblem.language === 'python'
+        ? 'py'
+        : activeProblem.language === 'rust'
+        ? 'rs'
+        : activeProblem.language === 'java'
+        ? 'java'
+        : 'cpp';
+    const defaultName = activeProblem.filePath
+      ? activeProblem.filePath.split(/[/\\]/).pop() || `solution.${ext}`
+      : `${activeProblem.name.replace(/[^a-zA-Z0-9_-]/g, '_')}.${ext}`;
+
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      if (activeProblem.filePath) {
+        await invoke('write_file_to_path', { path: activeProblem.filePath, content: cleanCode });
+        setCompilerLogs((prev) => prev + `[Saved] Code saved to ${activeProblem.filePath}\n`);
+        return;
+      }
+      const savedPath = await invoke<string | null>('dialog_save_code_file', {
+        defaultName,
+        content: cleanCode,
+      });
+      if (savedPath) {
+        setProblems((prev) =>
+          prev.map((p) => (p.id === activeProblemId ? { ...p, filePath: savedPath } : p))
+        );
+        setCompilerLogs((prev) => prev + `[Saved] Code saved to ${savedPath}\n`);
+      }
+    } catch {
+      // Browser fallback: download blob
+      const blob = new Blob([cleanCode], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = defaultName;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  };
+
+  const handleOpenCode = async () => {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      const res = await invoke<any>('dialog_open_code_file');
+      if (res && res.content !== undefined) {
+        const ext = res.name.split('.').pop()?.toLowerCase() || 'cpp';
+        const lang = ext === 'py' ? 'python' : ext === 'rs' ? 'rust' : ext === 'java' ? 'java' : 'cpp';
+        const newId = `problem-${Date.now()}`;
+        const newProblem: Problem = {
+          id: newId,
+          name: res.name,
+          group: 'Local',
+          filePath: res.path,
+          language: lang,
+          code: padLinesToMinimum(res.content, 100),
+          timeLimit: 2000,
+          memoryLimit: 256,
+          testcases: [{ id: `tc-${Date.now()}-1`, input: '1\n', output: '1\n', custom: true }],
+        };
+        setProblems((prev) => [...prev, newProblem]);
+        setActiveProblemId(newId);
+        setCompilerLogs((prev) => prev + `[Opened] Loaded code from ${res.path}\n`);
+        return;
+      }
+    } catch {}
+
+    // Browser fallback
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.cpp,.c,.cc,.cxx,.py,.rs,.java,.txt';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        const text = await file.text();
+        const ext = file.name.split('.').pop()?.toLowerCase() || 'cpp';
+        const lang = ext === 'py' ? 'python' : ext === 'rs' ? 'rust' : ext === 'java' ? 'java' : 'cpp';
+        const newId = `problem-${Date.now()}`;
+        const newProblem: Problem = {
+          id: newId,
+          name: file.name,
+          group: 'Local',
+          language: lang,
+          code: padLinesToMinimum(text, 100),
+          timeLimit: 2000,
+          memoryLimit: 256,
+          testcases: [{ id: `tc-${Date.now()}-1`, input: '1\n', output: '1\n', custom: true }],
+        };
+        setProblems((prev) => [...prev, newProblem]);
+        setActiveProblemId(newId);
+      }
+    };
+    input.click();
+  };
+
+  const handleSaveTestcases = async () => {
+    if (!activeProblem) return;
+    const jsonStr = JSON.stringify(activeProblem.testcases, null, 2);
+    const defaultName = `${activeProblem.name.replace(/[^a-zA-Z0-9_-]/g, '_')}_testcases.json`;
+
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      const savedPath = await invoke<string | null>('dialog_save_testcase_file', {
+        defaultName,
+        content: jsonStr,
+      });
+      if (savedPath) {
+        setExecutionLogs((prev) => prev + `[Exported] Testcases saved to ${savedPath}\n`);
+      }
+    } catch {
+      const blob = new Blob([jsonStr], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = defaultName;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+  };
+
+  const handleOpenTestcases = async () => {
+    if (!activeProblem) return;
+    const parseAndApply = (content: string) => {
+      try {
+        const parsed = JSON.parse(content);
+        let list: TestCase[] = [];
+        if (Array.isArray(parsed)) {
+          list = parsed.map((item, idx) => ({
+            id: item.id || `tc-imported-${Date.now()}-${idx}`,
+            input: item.input || '',
+            output: item.output || '',
+            custom: true,
+          }));
+        } else if (parsed.tests && Array.isArray(parsed.tests)) {
+          list = parsed.tests.map((item: any, idx: number) => ({
+            id: `tc-imported-${Date.now()}-${idx}`,
+            input: item.input || '',
+            output: item.output || '',
+            custom: true,
+          }));
+        } else if (parsed.testcases && Array.isArray(parsed.testcases)) {
+          list = parsed.testcases.map((item: any, idx: number) => ({
+            id: item.id || `tc-imported-${Date.now()}-${idx}`,
+            input: item.input || '',
+            output: item.output || '',
+            custom: true,
+          }));
+        }
+        if (list.length > 0) {
+          setProblems((prev) =>
+            prev.map((p) => (p.id === activeProblemId ? { ...p, testcases: list } : p))
+          );
+          setResults({});
+          setExecutionLogs((prev) => prev + `[Imported] Successfully loaded ${list.length} testcases\n`);
+        }
+      } catch (e: any) {
+        setExecutionLogs((prev) => prev + `[Error] Failed to parse testcase file: ${e.message}\n`);
+      }
+    };
+
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      const content = await invoke<string | null>('dialog_open_testcase_file');
+      if (content) {
+        parseAndApply(content);
+        return;
+      }
+    } catch {}
+
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.json,.txt,.cpe';
+    input.onchange = async (e) => {
+      const file = (e.target as HTMLInputElement).files?.[0];
+      if (file) {
+        const text = await file.text();
+        parseAndApply(text);
+      }
+    };
+    input.click();
+  };
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+        e.preventDefault();
+        handleSaveCode();
+      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') {
+        e.preventDefault();
+        handleOpenCode();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [activeProblem, activeProblemId]);
+
   return (
     <div
       onDragOver={(e) => {
@@ -539,7 +736,8 @@ export const AppShell: React.FC<AppShellProps> = ({
         onCompileAndRun={handleCompileAndRun}
         onRun={handleRun}
         onStop={handleStop}
-        onOpenStressTest={() => onOpenStressTest?.()}
+        onSaveCode={handleSaveCode}
+        onOpenCode={handleOpenCode}
         onOpenSettings={() => onOpenSettings?.()}
       />
 
@@ -684,6 +882,8 @@ export const AppShell: React.FC<AppShellProps> = ({
               onRunAll={() => runTestcasesViaTauri()}
               onRunSingle={handleRunSingle}
               onOpenDiff={handleOpenDiff}
+              onSaveTestcases={handleSaveTestcases}
+              onOpenTestcases={handleOpenTestcases}
               className="h-full w-full"
             />
           )}
