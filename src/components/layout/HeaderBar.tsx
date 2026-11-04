@@ -19,6 +19,7 @@ import {
 } from 'lucide-react';
 import { useTheme, THEME_LIST, type ThemeName } from '../theme/ThemeManager';
 import type { Problem } from '../../types';
+import type { ShortcutMap } from '../../utils/shortcuts';
 
 export interface HeaderBarProps {
   problems: Problem[];
@@ -35,6 +36,7 @@ export interface HeaderBarProps {
   onOpenCode?: () => void;
   onCopyStrippedCode?: () => void;
   onOpenSettings: () => void;
+  shortcuts?: ShortcutMap;
 }
 
 export const HeaderBar: React.FC<HeaderBarProps> = ({
@@ -52,6 +54,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   onOpenCode,
   onCopyStrippedCode,
   onOpenSettings,
+  shortcuts,
 }) => {
   const { theme, setTheme, transparent, setTransparent, showMascot, setShowMascot } = useTheme();
   const [themeDropdownOpen, setThemeDropdownOpen] = useState(false);
@@ -206,7 +209,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             disabled={isBusy}
             onClick={onCompileAndRun}
             className="flex items-center space-x-1.5 rounded-lg bg-[var(--theme-accent)] px-3 py-1 text-xs font-semibold text-white shadow-sm hover:brightness-110 disabled:opacity-50 transition-all active:scale-95"
-            title="Compile and Run All Testcases (Ctrl+F5)"
+            title={`Compile and Run All Testcases (${shortcuts?.compileAndRun || 'Ctrl+F5'})`}
           >
             <PlaySquare className="h-3.5 w-3.5" />
             <span className="hidden sm:inline">{isCompiling ? 'Compiling...' : 'Compile & Run'}</span>
@@ -218,7 +221,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             disabled={isBusy}
             onClick={onRun}
             className="flex items-center space-x-1 rounded-lg border border-[var(--theme-border)] bg-white/5 px-2.5 py-1 text-xs font-medium text-[var(--theme-text)] hover:bg-white/10 disabled:opacity-40 transition-colors"
-            title="Run without recompiling (F5)"
+            title={`Run without recompiling (${shortcuts?.run || 'F5'})`}
           >
             <Play className="h-3 w-3 fill-current" />
             <span className="hidden md:inline">Run</span>
@@ -230,7 +233,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             disabled={!isBusy}
             onClick={onStop}
             className="flex items-center space-x-1 rounded-lg border border-rose-500/30 bg-rose-500/10 px-2 py-1 text-xs font-medium text-rose-300 hover:bg-rose-500/20 disabled:opacity-30 transition-colors"
-            title="Stop Execution (Shift+F5)"
+            title={`Stop Execution (${shortcuts?.stop || 'Shift+F5'})`}
           >
             <Square className="h-3 w-3 fill-current" />
             <span className="hidden md:inline">Stop</span>
@@ -241,7 +244,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             type="button"
             onClick={onOpenCode}
             className="flex items-center space-x-1 rounded-lg border border-[var(--theme-border)] bg-white/5 px-2 py-1 text-xs font-medium text-[var(--theme-text)] hover:bg-white/10 transition-colors"
-            title="Open Source Code File (Ctrl+O)"
+            title={`Open Source Code File (${shortcuts?.openCode || 'Ctrl+O'})`}
           >
             <FolderOpen className="h-3.5 w-3.5" />
             <span className="hidden lg:inline">Open</span>
@@ -252,7 +255,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
             type="button"
             onClick={onSaveCode}
             className="flex items-center space-x-1 rounded-lg border border-[var(--theme-border)] bg-white/5 px-2 py-1 text-xs font-medium text-[var(--theme-text)] hover:bg-white/10 transition-colors"
-            title="Save Source Code (Ctrl+S)"
+            title={`Save Source Code (${shortcuts?.saveCode || 'Ctrl+S'})`}
           >
             <Save className="h-3.5 w-3.5" />
             <span className="hidden lg:inline">Save</span>

@@ -15,6 +15,13 @@ import {
 } from 'lucide-react';
 import { useTheme, THEME_LIST, type ThemeName } from '../theme/ThemeManager';
 import { DEFAULT_TEMPLATES } from '../../hooks/useCompanion';
+import {
+  DEFAULT_SHORTCUTS,
+  SHORTCUT_DEFINITIONS,
+  type ShortcutMap,
+  type ShortcutAction,
+  eventToShortcutString,
+} from '../../utils/shortcuts';
 
 export interface AppSettings {
   pathTemplate: string;
@@ -26,6 +33,7 @@ export interface AppSettings {
   tabSize: number;
   indentWithSpaces: boolean;
   completionKey: 'tab' | 'enter' | 'both';
+  shortcuts: ShortcutMap;
   lspPaths: {
     cpp: string;
     rust: string;
@@ -56,6 +64,7 @@ export const DEFAULT_SETTINGS: AppSettings = {
   tabSize: 4,
   indentWithSpaces: true,
   completionKey: 'tab',
+  shortcuts: DEFAULT_SHORTCUTS,
   lspPaths: {
     cpp: 'clangd',
     rust: 'rust-analyzer',
@@ -96,6 +105,7 @@ export function loadStoredSettings(): AppSettings {
           ? parsed.indentWithSpaces
           : DEFAULT_SETTINGS.indentWithSpaces,
       completionKey: parsed.completionKey || DEFAULT_SETTINGS.completionKey,
+      shortcuts: { ...DEFAULT_SHORTCUTS, ...(parsed.shortcuts || {}) },
       templates: { ...DEFAULT_SETTINGS.templates, ...(parsed.templates || {}) },
       compilerCommands: {
         ...DEFAULT_SETTINGS.compilerCommands,
@@ -149,6 +159,36 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [settings, setSettings] = useState<AppSettings>(() => loadStoredSettings());
   const [activeTemplateLang, setActiveTemplateLang] = useState<string>('cpp');
   const [savedBadge, setSavedBadge] = useState<boolean>(false);
+  const [recordingAction, setRecordingAction] = useState<ShortcutAction | null>(null);
+
+  useEffect(() => {
+    if (!recordingAction) return;
+
+    const handleKeyDown = (e: KeyboardEvent) => {
+      e.preventDefault();
+      e.stopPropagation();
+
+      if (e.key === 'Escape') {
+        setRecordingAction(null);
+        return;
+      }
+
+      const str = eventToShortcutString(e);
+      if (str) {
+        setSettings((prev) => ({
+          ...prev,
+          shortcuts: {
+            ...prev.shortcuts,
+            [recordingAction]: str,
+          },
+        }));
+        setRecordingAction(null);
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown, true);
+    return () => window.removeEventListener('keydown', handleKeyDown, true);
+  }, [recordingAction]);
 
   useEffect(() => {
     if (isOpen) {
@@ -870,57 +910,125 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
               </div>
             )}
 
-            {/* Keyboard Shortcuts Reference Tab */}
+            {/* Keyboard Shortcuts Customization Tab */}
             {activeTab === 'hotkeys' && (
-              <div className="space-y-3">
-                <div className="font-semibold text-sm text-[var(--theme-accent)]">
-                  Available Keyboard Shortcuts
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <div className="font-semibold text-sm text-[var(--theme-accent)]">
+                      Keyboard Shortcut Customization
+                    </div>
+                    <p className="text-[11px] text-[var(--theme-text-muted)] mt-0.5">
+                      Click any key badge below to rebind. Press your new key combination or Esc to cancel.
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setSettings((prev) => ({
+                        ...prev,
+                        shortcuts: DEFAULT_SHORTCUTS,
+                      }))
+                    }
+                    className="flex items-center space-x-1 rounded-md border border-[var(--theme-border)] px-2.5 py-1 text-[11px] text-[var(--theme-text-muted)] hover:bg-white/5 hover:text-[var(--theme-text)] transition-colors shrink-0"
+                    title="Restore all default keyboard shortcuts"
+                  >
+                    <RotateCcw className="h-3 w-3" />
+                    <span>Reset Shortcuts</span>
+                  </button>
                 </div>
+
+                {recordingAction && (
+                  <div className="rounded-lg border border-[var(--theme-accent)] bg-[var(--theme-accent)]/15 p-3 text-xs text-[var(--theme-text)] flex items-center justify-between animate-pulse">
+                    <span>
+                      Recording shortcut for{' '}
+                      <strong>
+                        {SHORTCUT_DEFINITIONS.find((d) => d.action === recordingAction)?.label}
+                      </strong>
+                      ... Press any key combination.
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setRecordingAction(null)}
+                      className="text-xs text-rose-300 underline ml-2"
+                    >
+                      Cancel (Esc)
+                    </button>
+                  </div>
+                )}
+
                 <div className="rounded-lg border border-[var(--theme-border)] overflow-hidden">
                   <table className="w-full text-left border-collapse text-xs">
                     <thead>
                       <tr className="border-b border-[var(--theme-border)] bg-black/30 text-[var(--theme-text-muted)]">
-                        <th className="p-2.5 font-medium">Action</th>
-                        <th className="p-2.5 font-medium">Shortcut</th>
+                        <th className="p-2.5 font-medium">Category</th>
+                        <th className="p-2.5 font-medium">Action & Description</th>
+                        <th className="p-2.5 font-medium text-right">Shortcut Key</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[var(--theme-border)]/40 font-mono text-[11px]">
-                      <tr>
-                        <td className="p-2 text-[var(--theme-text)]">Save Source Code</td>
-                        <td className="p-2 text-[var(--theme-accent)]">Ctrl + S</td>
-                      </tr>
-                      <tr>
-                        <td className="p-2 text-[var(--theme-text)]">Open Source Code</td>
-                        <td className="p-2 text-[var(--theme-accent)]">Ctrl + O</td>
-                      </tr>
-                      <tr>
-                        <td className="p-2 text-[var(--theme-text)]">Select Next Matching Pattern (CodeBlocks)</td>
-                        <td className="p-2 text-[var(--theme-accent)]">Ctrl + E / Ctrl + D</td>
-                      </tr>
-                      <tr>
-                        <td className="p-2 text-[var(--theme-text)]">Find in Code</td>
-                        <td className="p-2 text-[var(--theme-accent)]">Ctrl + F</td>
-                      </tr>
-                      <tr>
-                        <td className="p-2 text-[var(--theme-text)]">Replace in Code</td>
-                        <td className="p-2 text-[var(--theme-accent)]">Ctrl + H</td>
-                      </tr>
-                      <tr>
-                        <td className="p-2 text-[var(--theme-text)]">Compile &amp; Run All Testcases</td>
-                        <td className="p-2 text-[var(--theme-accent)]">Ctrl + F5</td>
-                      </tr>
-                      <tr>
-                        <td className="p-2 text-[var(--theme-text)]">Run All Testcases (No Recompile)</td>
-                        <td className="p-2 text-[var(--theme-accent)]">F5</td>
-                      </tr>
-                      <tr>
-                        <td className="p-2 text-[var(--theme-text)]">Stop Execution</td>
-                        <td className="p-2 text-[var(--theme-accent)]">Shift + F5</td>
-                      </tr>
-                      <tr>
-                        <td className="p-2 text-[var(--theme-text)]">Open Settings</td>
-                        <td className="p-2 text-[var(--theme-accent)]">Ctrl + ,</td>
-                      </tr>
+                    <tbody className="divide-y divide-[var(--theme-border)]/40 text-xs">
+                      {SHORTCUT_DEFINITIONS.map((def) => {
+                        const currentKey = settings.shortcuts?.[def.action] || DEFAULT_SHORTCUTS[def.action];
+                        const isRecording = recordingAction === def.action;
+                        const isDefault = currentKey === DEFAULT_SHORTCUTS[def.action];
+
+                        return (
+                          <tr
+                            key={def.action}
+                            className={`transition-colors ${
+                              isRecording ? 'bg-[var(--theme-tab-active)]' : 'hover:bg-white/5'
+                            }`}
+                          >
+                            <td className="p-2.5 align-middle">
+                              <span className="rounded bg-white/10 px-1.5 py-0.5 text-[10px] font-medium text-[var(--theme-text-muted)]">
+                                {def.category}
+                              </span>
+                            </td>
+                            <td className="p-2.5 align-middle">
+                              <div className="font-medium text-[var(--theme-text)]">{def.label}</div>
+                              <div className="text-[11px] text-[var(--theme-text-muted)]">
+                                {def.description}
+                              </div>
+                            </td>
+                            <td className="p-2.5 text-right align-middle">
+                              {isRecording ? (
+                                <span className="inline-block rounded-md bg-[var(--theme-accent)] px-3 py-1 font-mono text-xs font-bold text-white shadow-sm animate-pulse">
+                                  Press key...
+                                </span>
+                              ) : (
+                                <div className="inline-flex items-center space-x-1.5">
+                                  <button
+                                    type="button"
+                                    onClick={() => setRecordingAction(def.action)}
+                                    className="rounded-md border border-[var(--theme-border)] bg-black/40 px-2.5 py-1 font-mono text-xs font-semibold text-[var(--theme-accent)] shadow-sm hover:border-[var(--theme-accent)] hover:bg-[var(--theme-accent)]/15 transition-all"
+                                    title="Click to rebind this shortcut"
+                                  >
+                                    {currentKey}
+                                  </button>
+                                  {!isDefault && (
+                                    <button
+                                      type="button"
+                                      onClick={() =>
+                                        setSettings((prev) => ({
+                                          ...prev,
+                                          shortcuts: {
+                                            ...prev.shortcuts,
+                                            [def.action]: DEFAULT_SHORTCUTS[def.action],
+                                          },
+                                        }))
+                                      }
+                                      className="rounded p-1 text-[var(--theme-text-muted)] hover:text-rose-400 transition-colors"
+                                      title="Reset this shortcut to default"
+                                    >
+                                      <RotateCcw className="h-3 w-3" />
+                                    </button>
+                                  )}
+                                </div>
+                              )}
+                            </td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

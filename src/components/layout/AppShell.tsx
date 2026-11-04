@@ -21,6 +21,7 @@ import { type Problem, type TestCase, type TestCaseResult, padLinesToMinimum, st
 import { loadStoredSettings, type AppSettings } from '../settings/SettingsModal';
 import { DEFAULT_TEMPLATES } from '../../hooks/useCompanion';
 import { parseTestcaseFiles, type RawTestcaseFile } from '../testcases/testcaseParser';
+import { matchesShortcut } from '../../utils/shortcuts';
 
 export interface AppShellProps {
   initialProblems?: Problem[];
@@ -773,17 +774,30 @@ export const AppShell: React.FC<AppShellProps> = ({
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') {
+      const sc = settings.shortcuts;
+      if (matchesShortcut(e, sc?.saveCode || 'Ctrl+S')) {
         e.preventDefault();
         handleSaveCode();
-      } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'o') {
+      } else if (matchesShortcut(e, sc?.openCode || 'Ctrl+O')) {
         e.preventDefault();
         handleOpenCode();
+      } else if (matchesShortcut(e, sc?.compileAndRun || 'Ctrl+F5')) {
+        e.preventDefault();
+        handleCompileAndRun();
+      } else if (matchesShortcut(e, sc?.run || 'F5')) {
+        e.preventDefault();
+        handleRun();
+      } else if (matchesShortcut(e, sc?.stop || 'Shift+F5')) {
+        e.preventDefault();
+        handleStop();
+      } else if (matchesShortcut(e, sc?.openSettings || 'Ctrl+,')) {
+        e.preventDefault();
+        onOpenSettings?.();
       }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [activeProblem, activeProblemId]);
+  }, [activeProblem, activeProblemId, settings.shortcuts, isCompiling, isRunning]);
 
   return (
     <div
@@ -810,6 +824,7 @@ export const AppShell: React.FC<AppShellProps> = ({
         onOpenCode={handleOpenCode}
         onCopyStrippedCode={handleCopyStrippedCode}
         onOpenSettings={() => onOpenSettings?.()}
+        shortcuts={settings.shortcuts}
       />
 
       {/* Main Workspace Area */}
@@ -829,6 +844,7 @@ export const AppShell: React.FC<AppShellProps> = ({
               tabSize={settings.tabSize}
               indentWithSpaces={settings.indentWithSpaces}
               completionKey={settings.completionKey}
+              shortcuts={settings.shortcuts}
               className="h-full w-full"
             />
           </div>

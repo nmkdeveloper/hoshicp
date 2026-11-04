@@ -34,6 +34,7 @@ import { getThemeExtensions, type ThemeName } from './themes';
 import { VimStatus } from './vimStatus';
 import { LspClient } from './lspClient';
 import { padLinesToMinimum, stripPaddingLines } from '../../types';
+import { toCodeMirrorKey, DEFAULT_SHORTCUTS, type ShortcutMap } from '../../utils/shortcuts';
 
 export interface CodeEditorProps {
   value: string;
@@ -49,6 +50,7 @@ export interface CodeEditorProps {
   tabSize?: number;
   indentWithSpaces?: boolean;
   completionKey?: 'tab' | 'enter' | 'both';
+  shortcuts?: ShortcutMap;
 }
 
 export function getLanguageExtension(lang?: string): Extension {
@@ -89,6 +91,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   tabSize = 4,
   indentWithSpaces = true,
   completionKey = 'tab',
+  shortcuts = DEFAULT_SHORTCUTS,
 }) => {
   const editorContainerRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
@@ -103,6 +106,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   const tabSizeCompartment = useRef(new Compartment()).current;
   const indentUnitCompartment = useRef(new Compartment()).current;
   const completionKeymapCompartment = useRef(new Compartment()).current;
+  const shortcutsCompartment = useRef(new Compartment()).current;
 
   // Track Vim status
   const [vimState, setVimState] = useState<{
@@ -123,27 +127,41 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   useEffect(() => {
     if (!editorContainerRef.current) return;
 
-    const customKeymaps = [
-      indentWithTab,
-      {
-        key: 'Mod-e',
-        run: selectNextOccurrence,
-      },
-      {
-        key: 'Mod-d',
-        run: selectNextOccurrence,
-      },
-      {
-        key: 'Mod-f',
-        run: openSearchPanel,
-      },
-      ...closeBracketsKeymap,
-      ...defaultKeymap,
-      ...searchKeymap,
-      ...historyKeymap,
-      ...foldKeymap,
-      ...lintKeymap,
-    ];
+    const getCustomKeybindings = (sc: ShortcutMap = DEFAULT_SHORTCUTS) => {
+      const selectNextKey = toCodeMirrorKey(sc.selectNext || 'Ctrl+E');
+      const findKey = toCodeMirrorKey(sc.find || 'Ctrl+F');
+      const replaceKey = toCodeMirrorKey(sc.replace || 'Ctrl+H');
+
+      return keymap.of([
+        indentWithTab,
+        {
+          key: selectNextKey,
+          run: selectNextOccurrence,
+        },
+        ...(selectNextKey !== 'Mod-d'
+          ? [
+              {
+                key: 'Mod-d',
+                run: selectNextOccurrence,
+              },
+            ]
+          : []),
+        {
+          key: findKey,
+          run: openSearchPanel,
+        },
+        {
+          key: replaceKey,
+          run: openSearchPanel,
+        },
+        ...closeBracketsKeymap,
+        ...defaultKeymap,
+        ...searchKeymap,
+        ...historyKeymap,
+        ...foldKeymap,
+        ...lintKeymap,
+      ]);
+    };
 
     const getCompletionKeys = (keyChoice: 'tab' | 'enter' | 'both') => {
       const keys = [];
@@ -176,7 +194,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
       rectangularSelection(),
       crosshairCursor(),
       highlightActiveLine(),
-      keymap.of(customKeymaps),
+      shortcutsCompartment.of(getCustomKeybindings(shortcuts)),
       // Compartments
       langCompartment.of(getLanguageExtension(language)),
       themeCompartment.of(getThemeExtensions(theme, { transparent })),
@@ -347,6 +365,49 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
       effects: completionKeymapCompartment.reconfigure(keymap.of(keys)),
     });
   }, [completionKey]);
+
+  // Dynamic Shortcuts updates
+  useEffect(() => {
+    const view = viewRef.current;
+    if (!view) return;
+    const selectNextKey = toCodeMirrorKey(shortcuts.selectNext || 'Ctrl+E');
+    const findKey = toCodeMirrorKey(shortcuts.find || 'Ctrl+F');
+    const replaceKey = toCodeMirrorKey(shortcuts.replace || 'Ctrl+H');
+
+    view.dispatch({
+      effects: shortcutsCompartment.reconfigure(
+        keymap.of([
+          indentWithTab,
+          {
+            key: selectNextKey,
+            run: selectNextOccurrence,
+          },
+          ...(selectNextKey !== 'Mod-d'
+            ? [
+                {
+                  key: 'Mod-d',
+                  run: selectNextOccurrence,
+                },
+              ]
+            : []),
+          {
+            key: findKey,
+            run: openSearchPanel,
+          },
+          {
+            key: replaceKey,
+            run: openSearchPanel,
+          },
+          ...closeBracketsKeymap,
+          ...defaultKeymap,
+          ...searchKeymap,
+          ...historyKeymap,
+          ...foldKeymap,
+          ...lintKeymap,
+        ])
+      ),
+    });
+  }, [shortcuts]);
 
   // Dynamic readOnly toggle
   useEffect(() => {
