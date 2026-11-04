@@ -69,14 +69,11 @@ jobs:
 
       - name: Upload Windows Custom Installer & Portable Zip
         if: matrix.os == 'windows-latest'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: ${{ github.ref_name }}
-          files: |
-            HoshiCP-Setup.exe
-            HoshiCP-windows-x64.zip
+        shell: bash
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload "${{ github.ref_name }}" HoshiCP-Setup.exe HoshiCP-windows-x64.zip --clobber
 
       - name: Save updater manifest artifact
         uses: actions/upload-artifact@v4
