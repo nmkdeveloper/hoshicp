@@ -12,6 +12,7 @@ permissions:
 jobs:
   release:
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 35
     strategy:
       fail-fast: false
       matrix:
@@ -92,6 +93,7 @@ jobs:
   combine-manifests:
     name: Combine Updater Manifests
     needs: release
+    if: always() && needs.release.result != 'cancelled'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code

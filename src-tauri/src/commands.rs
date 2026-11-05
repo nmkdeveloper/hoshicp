@@ -439,72 +439,239 @@ pub fn write_file_to_path(path: String, content: String) -> Result<(), String> {
     std::fs::write(Path::new(&path), content).map_err(|e| e.to_string())
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct GoogleFontInfo {
+    pub family: String,
+    pub slug: String,
+    pub url: String,
+    pub css_content: String,
+    pub cached: bool,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct DownloadedFontEntry {
+    pub family: String,
+    pub slug: String,
+    pub url: String,
+    pub css_content: String,
+}
+
+fn slugify(text: &str) -> String {
+    text.to_lowercase()
+        .chars()
+        .map(|c| if c.is_alphanumeric() { c } else { '-' })
+        .collect::<String>()
+        .split('-')
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>()
+        .join("-")
+}
+
+fn parse_google_font_input(input: &str) -> (String, String, String) {
+    let trimmed = input.trim();
+    if trimmed.contains("fonts.googleapis.com/css2") {
+        let family = if let Some(idx) = trimmed.find("family=") {
+            let sub = &trimmed[idx + 7..];
+            let end = sub.find('&').unwrap_or(sub.len());
+            let raw_fam = &sub[..end];
+            let raw_name = raw_fam.split(':').next().unwrap_or(raw_fam);
+            raw_name.replace('+', " ")
+        } else {
+            "Google Font".to_string()
+        };
+        let slug = slugify(&family);
+        (trimmed.to_string(), family, slug)
+    } else if trimmed.contains("fonts.google.com/specimen/") {
+        let sub = trimmed.split("specimen/").nth(1).unwrap_or(trimmed);
+        let end = sub.find('?').unwrap_or(sub.len());
+        let raw_name = &sub[..end];
+        let family = raw_name.replace('+', " ");
+        let slug = slugify(&family);
+        let url = format!(
+            "https://fonts.googleapis.com/css2?family={}:wght@400;500;600;700&display=swap",
+            family.replace(' ', "+")
+        );
+        (url, family, slug)
+    } else {
+        let family = trimmed.to_string();
+        let slug = slugify(&family);
+        let url = format!(
+            "https://fonts.googleapis.com/css2?family={}:wght@400;500;600;700&display=swap",
+            family.replace(' ', "+")
+        );
+        (url, family, slug)
+    }
+}
+
 #[tauri::command]
-pub fn get_system_fonts() -> Result<Vec<String>, String> {
-    #[cfg(windows)]
-    {
-        use std::collections::BTreeSet;
-        use winreg::enums::*;
-        use winreg::RegKey;
+pub async fn download_google_font(
+    app: tauri::AppHandle,
+    font_input: String,
+) -> Result<GoogleFontInfo, String> {
+    use tauri::Manager;
+    let (url, family, slug) = parse_google_font_input(&font_input);
+    if slug.is_empty() {
+        return Err("Invalid font name or URL".to_string());
+    }
 
-        let mut fonts = BTreeSet::new();
+    let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let font_dir = app_data.join("fonts").join(&slug);
+    let css_file = font_dir.join("font.css");
 
-        let hives = [
-            (HKEY_LOCAL_MACHINE, r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\Fonts"),
-            (HKEY_CURRENT_USER, r"Software\Microsoft\Windows NT\CurrentVersion\Fonts"),
-        ];
+    // 1. Check if font already exists in application directory
+    if css_file.exists() {
+        if let Ok(content) = fs::read_to_string(&css_file) {
+            return Ok(GoogleFontInfo {
+                family,
+                slug,
+                url,
+                css_content: content,
+                cached: true,
+            });
+        }
+    }
 
-        for (hive, subkey) in hives {
-            let root = RegKey::predef(hive);
-            if let Ok(key) = root.open_subkey(subkey) {
-                for value in key.enum_values().flatten() {
-                    let mut name = value.0;
-                    if let Some(pos) = name.find('(') {
-                        name = name[..pos].trim().to_string();
-                    }
-                    if let Some(pos) = name.find('&') {
-                        name = name[..pos].trim().to_string();
-                    }
-                    name = name.trim().to_string();
-                    if !name.is_empty() && name.len() < 64 {
-                        fonts.insert(name);
-                    }
+    // 2. Fetch stylesheet from Google Fonts
+    let client = reqwest::Client::builder()
+        .user_agent("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+        .build()
+        .map_err(|e| format!("Failed to build HTTP client: {}", e))?;
+
+    let css_text = client
+        .get(&url)
+        .send()
+        .await
+        .map_err(|e| format!("Failed to reach Google Fonts: {}", e))?
+        .text()
+        .await
+        .map_err(|e| format!("Failed to read Google Fonts CSS: {}", e))?;
+
+    if !css_text.contains("@font-face") {
+        return Err(format!("Google Fonts did not return a valid font for '{}'", family));
+    }
+
+    // Extract detected font-family name from CSS if possible
+    let detected_family = if let Some(idx) = css_text.find("font-family:") {
+        let sub = &css_text[idx + 12..];
+        let end = sub.find(';').unwrap_or(sub.len());
+        sub[..end].trim().trim_matches('\'').trim_matches('"').to_string()
+    } else {
+        family.clone()
+    };
+
+    let _ = fs::create_dir_all(&font_dir);
+
+    // 3. Download font chunks (woff2) and embed as data URLs for zero-latency offline portability
+    let mut final_css = css_text.clone();
+    let url_pattern = "https://fonts.gstatic.com/s/";
+    let mut search_from = 0;
+    let mut chunk_idx = 0;
+
+    while let Some(start_idx) = final_css[search_from..].find(url_pattern) {
+        let actual_start = search_from + start_idx;
+        let sub = &final_css[actual_start..];
+        if let Some(end_idx) = sub.find(')') {
+            let font_url = sub[..end_idx].trim().trim_matches('\'').trim_matches('"');
+            chunk_idx += 1;
+
+            if let Ok(resp) = client.get(font_url).send().await {
+                if let Ok(bytes) = resp.bytes().await {
+                    // Save chunk file to app font directory
+                    let chunk_path = font_dir.join(format!("chunk_{}.woff2", chunk_idx));
+                    let _ = fs::write(&chunk_path, &bytes);
+
+                    // Replace with data URL in final CSS
+                    use base64::Engine;
+                    let b64 = base64::engine::general_purpose::STANDARD.encode(&bytes);
+                    let data_url = format!("data:font/woff2;base64,{}", b64);
+                    final_css.replace_range(actual_start..actual_start + font_url.len(), &data_url);
+                    search_from = actual_start + data_url.len();
+                    continue;
+                }
+            }
+            search_from = actual_start + font_url.len();
+        } else {
+            break;
+        }
+    }
+
+    // Write final CSS to disk
+    fs::write(&css_file, &final_css).map_err(|e| format!("Failed to save font CSS: {}", e))?;
+
+    // Update manifest.json
+    let manifest_path = app_data.join("fonts").join("manifest.json");
+    let mut entries: Vec<DownloadedFontEntry> = if manifest_path.exists() {
+        fs::read_to_string(&manifest_path)
+            .ok()
+            .and_then(|c| serde_json::from_str(&c).ok())
+            .unwrap_or_default()
+    } else {
+        Vec::new()
+    };
+
+    entries.retain(|e| e.slug != slug);
+    entries.push(DownloadedFontEntry {
+        family: detected_family.clone(),
+        slug: slug.clone(),
+        url: url.clone(),
+        css_content: final_css.clone(),
+    });
+
+    if let Ok(serialized) = serde_json::to_string_pretty(&entries) {
+        let _ = fs::write(&manifest_path, serialized);
+    }
+
+    Ok(GoogleFontInfo {
+        family: detected_family,
+        slug,
+        url,
+        css_content: final_css,
+        cached: false,
+    })
+}
+
+#[tauri::command]
+pub fn get_downloaded_google_fonts(app: tauri::AppHandle) -> Result<Vec<DownloadedFontEntry>, String> {
+    use tauri::Manager;
+    let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let manifest_path = app_data.join("fonts").join("manifest.json");
+
+    if !manifest_path.exists() {
+        return Ok(Vec::new());
+    }
+
+    let content = fs::read_to_string(&manifest_path).map_err(|e| e.to_string())?;
+    let entries: Vec<DownloadedFontEntry> = serde_json::from_str(&content).unwrap_or_default();
+
+    // Verify files still exist on disk
+    let valid_entries = entries
+        .into_iter()
+        .filter(|e| app_data.join("fonts").join(&e.slug).join("font.css").exists())
+        .collect();
+
+    Ok(valid_entries)
+}
+
+#[tauri::command]
+pub fn delete_downloaded_google_font(app: tauri::AppHandle, slug: String) -> Result<(), String> {
+    use tauri::Manager;
+    let app_data = app.path().app_data_dir().map_err(|e| e.to_string())?;
+    let font_dir = app_data.join("fonts").join(&slug);
+    if font_dir.exists() {
+        let _ = fs::remove_dir_all(font_dir);
+    }
+
+    let manifest_path = app_data.join("fonts").join("manifest.json");
+    if manifest_path.exists() {
+        if let Ok(content) = fs::read_to_string(&manifest_path) {
+            if let Ok(mut entries) = serde_json::from_str::<Vec<DownloadedFontEntry>>(&content) {
+                entries.retain(|e| e.slug != slug);
+                if let Ok(serialized) = serde_json::to_string_pretty(&entries) {
+                    let _ = fs::write(&manifest_path, serialized);
                 }
             }
         }
-
-        let defaults = [
-            "Consolas",
-            "Cascadia Code",
-            "Cascadia Mono",
-            "Courier New",
-            "Fira Code",
-            "JetBrains Mono",
-            "Lucida Console",
-            "Segoe UI",
-            "Source Code Pro",
-        ];
-        for d in defaults {
-            fonts.insert(d.to_string());
-        }
-
-        Ok(fonts.into_iter().collect())
     }
 
-    #[cfg(not(windows))]
-    {
-        Ok(vec![
-            "JetBrains Mono".into(),
-            "Fira Code".into(),
-            "Cascadia Code".into(),
-            "Consolas".into(),
-            "Menlo".into(),
-            "Monaco".into(),
-            "Courier New".into(),
-            "Source Code Pro".into(),
-            "DejaVu Sans Mono".into(),
-            "Ubuntu Mono".into(),
-            "SF Mono".into(),
-        ])
-    }
+    Ok(())
 }

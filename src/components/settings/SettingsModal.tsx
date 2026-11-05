@@ -12,6 +12,10 @@ import {
   FolderCode,
   Sliders,
   Keyboard,
+  Download,
+  Globe,
+  Trash2,
+  Loader2,
 } from 'lucide-react';
 import { useTheme, THEME_LIST, type ThemeName } from '../theme/ThemeManager';
 import { DEFAULT_TEMPLATES } from '../../hooks/useCompanion';
@@ -22,6 +26,25 @@ import {
   type ShortcutAction,
   eventToShortcutString,
 } from '../../utils/shortcuts';
+
+export interface DownloadedFont {
+  family: string;
+  slug: string;
+  url: string;
+  css_content: string;
+}
+
+export function injectFontFaceCss(slug: string, cssContent: string) {
+  if (typeof document === 'undefined') return;
+  const id = `hoshicp-font-${slug}`;
+  let el = document.getElementById(id) as HTMLStyleElement | null;
+  if (!el) {
+    el = document.createElement('style');
+    el.id = id;
+    document.head.appendChild(el);
+  }
+  el.textContent = cssContent;
+}
 
 export interface AppSettings {
   pathTemplate: string;
@@ -166,36 +189,78 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
   const [activeTemplateLang, setActiveTemplateLang] = useState<string>('cpp');
   const [savedBadge, setSavedBadge] = useState<boolean>(false);
   const [recordingAction, setRecordingAction] = useState<ShortcutAction | null>(null);
-  const [systemFonts, setSystemFonts] = useState<string[]>([]);
-  const [fontSearch, setFontSearch] = useState<string>('');
+  const [downloadedFonts, setDownloadedFonts] = useState<DownloadedFont[]>([]);
+  const [googleFontInput, setGoogleFontInput] = useState<string>('');
+  const [isDownloadingFont, setIsDownloadingFont] = useState<boolean>(false);
+  const [fontMessage, setFontMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(
+    null
+  );
+
+  const fetchDownloadedFonts = async () => {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      const list = await invoke<DownloadedFont[]>('get_downloaded_google_fonts');
+      if (list && Array.isArray(list)) {
+        setDownloadedFonts(list);
+        list.forEach((f) => injectFontFaceCss(f.slug, f.css_content));
+      }
+    } catch {}
+  };
 
   useEffect(() => {
-    let isMounted = true;
-    const fetchFonts = async () => {
-      try {
-        const { invoke } = await import('@tauri-apps/api/core');
-        const fonts = await invoke<string[]>('get_system_fonts');
-        if (isMounted && fonts && fonts.length > 0) {
-          setSystemFonts(fonts);
-          return;
-        }
-      } catch {}
+    fetchDownloadedFonts();
+  }, [isOpen]);
 
-      if (typeof window !== 'undefined' && 'queryLocalFonts' in window) {
-        try {
-          const localFonts = await (window as any).queryLocalFonts();
-          const names = Array.from(new Set(localFonts.map((f: any) => f.family))) as string[];
-          if (isMounted && names.length > 0) {
-            setSystemFonts(names.sort());
-          }
-        } catch {}
+  const handleDownloadFont = async () => {
+    const input = googleFontInput.trim();
+    if (!input) return;
+
+    setIsDownloadingFont(true);
+    setFontMessage(null);
+
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      const res = await invoke<any>('download_google_font', { fontInput: input });
+      if (res && res.css_content) {
+        injectFontFaceCss(res.slug, res.css_content);
+        await fetchDownloadedFonts();
+        const appliedFamily = `'${res.family}', monospace`;
+        setSettings((prev) => ({ ...prev, fontFamily: appliedFamily }));
+        setFontMessage({
+          type: 'success',
+          text: res.cached
+            ? `Font '${res.family}' was already downloaded. Applied successfully!`
+            : `Downloaded and applied '${res.family}' from Google Fonts!`,
+        });
+        setGoogleFontInput('');
       }
-    };
-    fetchFonts();
-    return () => {
-      isMounted = false;
-    };
-  }, []);
+    } catch (err: any) {
+      setFontMessage({
+        type: 'error',
+        text: err?.message || String(err) || 'Failed to download font from Google Fonts',
+      });
+    } finally {
+      setIsDownloadingFont(false);
+    }
+  };
+
+  const handleDeleteFont = async (slug: string, family: string) => {
+    try {
+      const { invoke } = await import('@tauri-apps/api/core');
+      await invoke('delete_downloaded_google_font', { slug });
+      await fetchDownloadedFonts();
+      if (settings.fontFamily.includes(family)) {
+        setSettings((prev) => ({
+          ...prev,
+          fontFamily: "'JetBrains Mono', monospace",
+        }));
+      }
+      setFontMessage({
+        type: 'success',
+        text: `Removed font '${family}'`,
+      });
+    } catch {}
+  };
 
   useEffect(() => {
     if (!recordingAction) return;
@@ -487,11 +552,11 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
 
                   <div>
                     <label className="mb-1 flex items-center justify-between font-medium text-[var(--theme-text-muted)]">
-                      <span>Font Family</span>
+                      <span>Active Font Family</span>
                       <span className="text-[10px] text-[var(--theme-accent)]">
-                        {systemFonts.length > 0
-                          ? `${systemFonts.length} system fonts detected`
-                          : 'Installed fonts'}
+                        {downloadedFonts.length > 0
+                          ? `${downloadedFonts.length} Google font(s) downloaded`
+                          : 'JetBrains Mono built-in'}
                       </span>
                     </label>
 
@@ -503,38 +568,141 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                         }
                         className="w-full rounded-lg border border-[var(--theme-border)] bg-black/20 px-3 py-1.5 font-medium text-[var(--theme-text)] focus:border-[var(--theme-accent)] focus:outline-none text-xs"
                       >
-                        <optgroup label="Popular Monospace Fonts">
-                          <option value="'JetBrains Mono', monospace">JetBrains Mono (Default)</option>
-                          <option value="'Fira Code', monospace">Fira Code</option>
-                          <option value="'Cascadia Code', monospace">Cascadia Code</option>
-                          <option value="Consolas, monospace">Consolas</option>
-                          <option value="'Source Code Pro', monospace">Source Code Pro</option>
-                          <option value="'Courier New', monospace">Courier New</option>
+                        <optgroup label="Default Built-in Offline Font">
+                          <option value="'JetBrains Mono', monospace">JetBrains Mono (Bundled)</option>
                         </optgroup>
 
-                        {systemFonts.length > 0 && (
-                          <optgroup label="Installed Machine Fonts">
-                            {systemFonts.map((fontName) => (
-                              <option key={fontName} value={`'${fontName}', monospace`}>
-                                {fontName}
+                        {downloadedFonts.length > 0 && (
+                          <optgroup label="Downloaded Google Fonts">
+                            {downloadedFonts.map((f) => (
+                              <option key={f.slug} value={`'${f.family}', monospace`}>
+                                {f.family}
                               </option>
                             ))}
                           </optgroup>
                         )}
                       </select>
-
-                      <input
-                        type="text"
-                        value={settings.fontFamily}
-                        onChange={(e) =>
-                          setSettings({ ...settings, fontFamily: e.target.value })
-                        }
-                        placeholder="Or enter any custom font name installed on PC..."
-                        className="w-full rounded-lg border border-[var(--theme-border)] bg-black/30 px-3 py-1 font-mono text-[11px] text-[var(--theme-text)] focus:border-[var(--theme-accent)] focus:outline-none"
-                        title="You can type or paste any exact font family name installed on your system"
-                      />
                     </div>
                   </div>
+                </div>
+
+                {/* Google Fonts Downloader Card */}
+                <div className="rounded-xl border border-[var(--theme-border)] bg-black/25 p-3.5 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Globe className="h-4 w-4 text-[var(--theme-accent)]" />
+                      <span className="font-semibold text-xs text-[var(--theme-text)]">
+                        Download Google Font
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-[var(--theme-text-muted)]">
+                      Saved to app data directory
+                    </span>
+                  </div>
+
+                  <p className="text-[11px] text-[var(--theme-text-muted)] leading-relaxed">
+                    Paste a Google Fonts URL (e.g.{' '}
+                    <code className="text-pink-300">https://fonts.google.com/specimen/Fira+Code</code>) or enter a font family name. If not already downloaded, HoshiCP will fetch the font files and store them locally for offline reuse.
+                  </p>
+
+                  <div className="flex space-x-2">
+                    <input
+                      type="text"
+                      value={googleFontInput}
+                      onChange={(e) => setGoogleFontInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          handleDownloadFont();
+                        }
+                      }}
+                      placeholder="e.g. Fira Code, Inconsolata, Roboto Mono, or Google Fonts URL..."
+                      className="flex-1 rounded-lg border border-[var(--theme-border)] bg-black/30 px-3 py-1.5 font-mono text-xs text-[var(--theme-text)] focus:border-[var(--theme-accent)] focus:outline-none placeholder-slate-500"
+                    />
+                    <button
+                      type="button"
+                      disabled={isDownloadingFont || !googleFontInput.trim()}
+                      onClick={handleDownloadFont}
+                      className="flex items-center space-x-1.5 rounded-lg bg-[var(--theme-accent)] px-3 py-1.5 text-xs font-semibold text-white shadow-sm hover:brightness-110 disabled:opacity-50 transition-all shrink-0"
+                    >
+                      {isDownloadingFont ? (
+                        <>
+                          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          <span>Downloading...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Download className="h-3.5 w-3.5" />
+                          <span>Download &amp; Apply</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+
+                  {fontMessage && (
+                    <div
+                      className={`rounded-lg px-3 py-2 text-xs font-medium border ${
+                        fontMessage.type === 'success'
+                          ? 'border-emerald-500/30 bg-emerald-500/15 text-emerald-300'
+                          : 'border-rose-500/30 bg-rose-500/15 text-rose-300'
+                      }`}
+                    >
+                      {fontMessage.text}
+                    </div>
+                  )}
+
+                  {/* List of currently cached fonts */}
+                  {downloadedFonts.length > 0 && (
+                    <div className="pt-1 space-y-1.5 border-t border-[var(--theme-border)]/50">
+                      <div className="text-[10px] uppercase font-bold text-[var(--theme-text-muted)] tracking-wider">
+                        Installed Google Fonts Cache ({downloadedFonts.length})
+                      </div>
+                      <div className="space-y-1">
+                        {downloadedFonts.map((f) => {
+                          const isActive = settings.fontFamily.includes(f.family);
+                          return (
+                            <div
+                              key={f.slug}
+                              className="flex items-center justify-between rounded-lg border border-[var(--theme-border)] bg-black/20 px-2.5 py-1.5 text-xs"
+                            >
+                              <div className="flex items-center space-x-2">
+                                <span className="font-medium text-[var(--theme-text)]">{f.family}</span>
+                                {isActive && (
+                                  <span className="rounded bg-emerald-500/20 px-1.5 py-0.2 text-[10px] font-medium text-emerald-300 border border-emerald-500/30">
+                                    Active
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex items-center space-x-1">
+                                {!isActive && (
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setSettings((prev) => ({
+                                        ...prev,
+                                        fontFamily: `'${f.family}', monospace`,
+                                      }))
+                                    }
+                                    className="rounded px-2 py-0.5 text-[11px] text-[var(--theme-accent)] hover:bg-white/10"
+                                  >
+                                    Apply
+                                  </button>
+                                )}
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteFont(f.slug, f.family)}
+                                  className="rounded p-1 text-[var(--theme-text-muted)] hover:text-rose-400"
+                                  title="Delete cached font"
+                                >
+                                  <Trash2 className="h-3 w-3" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
                 </div>
 
                 <div>

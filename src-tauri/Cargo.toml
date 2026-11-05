@@ -23,9 +23,10 @@ axum = "0.8"
 tokio-tungstenite = "0.30.0"
 futures-util = "0.3.34"
 rfd = "0.15"
+reqwest = { version = "0.12", default-features = false, features = ["rustls-tls"] }
+base64 = "0.22"
 
 [target.'cfg(windows)'.dependencies]
-winreg = "0.56"
 windows-sys = { version = "0.61", features = [
     "Win32_Foundation",
     "Win32_System_JobObjects",

@@ -1,10 +1,11 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { ThemeProvider } from './components/theme/ThemeManager';
 import { AppShell, createDefaultProblem } from './components/layout/AppShell';
 import {
   SettingsModal,
   loadStoredSettings,
   type AppSettings,
+  injectFontFaceCss,
 } from './components/settings/SettingsModal';
 import { useCompanion } from './hooks/useCompanion';
 import { type Problem, padLinesToMinimum } from './types';
@@ -14,6 +15,20 @@ export default function App() {
   const [activeProblemId, setActiveProblemId] = useState<string>('problem-1');
   const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
   const [settings, setSettings] = useState<AppSettings>(() => loadStoredSettings());
+
+  // Load and inject cached Google Fonts into DOM on startup
+  useEffect(() => {
+    const loadFonts = async () => {
+      try {
+        const { invoke } = await import('@tauri-apps/api/core');
+        const list = await invoke<any[]>('get_downloaded_google_fonts');
+        if (list && Array.isArray(list)) {
+          list.forEach((f) => injectFontFaceCss(f.slug, f.css_content));
+        }
+      } catch {}
+    };
+    loadFonts();
+  }, []);
 
   const handleNewCompanionProblem = useCallback((newProblem: Problem) => {
     setProblems((prev) => {
