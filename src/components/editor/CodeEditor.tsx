@@ -53,6 +53,7 @@ export interface CodeEditorProps {
   shortcuts?: ShortcutMap;
   fontSize?: number;
   fontFamily?: string;
+  surfaceOpacity?: number;
 }
 
 export function getLanguageExtension(lang?: string): Extension {
@@ -109,6 +110,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   shortcuts = DEFAULT_SHORTCUTS,
   fontSize = 14,
   fontFamily,
+  surfaceOpacity = 0.88,
 }) => {
   const editorContainerRef = useRef<HTMLDivElement | null>(null);
   const viewRef = useRef<EditorView | null>(null);
@@ -220,7 +222,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
       // Compartments
       langCompartment.of(getLanguageExtension(language)),
       themeCompartment.of(
-        getThemeExtensions(theme, { transparent, fontSize, fontFamily })
+        getThemeExtensions(theme, { transparent, fontSize, fontFamily, surfaceOpacity })
       ),
       vimCompartment.of(vimMode ? vim() : []),
       lspCompartment.of(autocompletion()),
@@ -357,16 +359,16 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     });
   }, [language]);
 
-  // Dynamic theme, transparency, font & size updates
+  // Dynamic theme, transparency, font, opacity & size updates
   useEffect(() => {
     const view = viewRef.current;
     if (!view) return;
     view.dispatch({
       effects: themeCompartment.reconfigure(
-        getThemeExtensions(theme, { transparent, fontSize, fontFamily })
+        getThemeExtensions(theme, { transparent, fontSize, fontFamily, surfaceOpacity })
       ),
     });
-  }, [theme, transparent, fontSize, fontFamily]);
+  }, [theme, transparent, fontSize, fontFamily, surfaceOpacity]);
 
   // Dynamic Vim mode toggle
   useEffect(() => {

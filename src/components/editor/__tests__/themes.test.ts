@@ -26,7 +26,7 @@ describe('Editor Theme Engine', () => {
     });
 
     it(`supports transparent option for ${theme}`, () => {
-      const extTransparent = getThemeExtensions(theme, { transparent: true });
+      const extTransparent = getThemeExtensions(theme, { transparent: true, surfaceOpacity: 0.85 });
       const extOpaque = getThemeExtensions(theme, { transparent: false });
       expect(extTransparent).toBeDefined();
       expect(extOpaque).toBeDefined();

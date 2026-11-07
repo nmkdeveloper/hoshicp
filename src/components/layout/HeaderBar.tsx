@@ -56,7 +56,18 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
   onOpenSettings,
   shortcuts,
 }) => {
-  const { theme, setTheme, transparent, setTransparent, showMascot, setShowMascot } = useTheme();
+  const {
+    theme,
+    setTheme,
+    transparent,
+    setTransparent,
+    surfaceOpacity,
+    setSurfaceOpacity,
+    liquidGlass,
+    setLiquidGlass,
+    showMascot,
+    setShowMascot,
+  } = useTheme();
   const [themeDropdownOpen, setThemeDropdownOpen] = useState(false);
   const [copiedCodeBadge, setCopiedCodeBadge] = useState(false);
   const themeDropdownRef = useRef<HTMLDivElement | null>(null);
@@ -340,6 +351,31 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
                   <span className="text-[var(--theme-text-muted)]">Mica / Glass Backdrop</span>
                   <span className="font-mono text-[11px] text-[var(--theme-accent)]">{transparent ? 'ON' : 'OFF'}</span>
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => setLiquidGlass(!liquidGlass)}
+                  className="flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-xs hover:bg-white/5 transition-colors"
+                >
+                  <span className="text-[var(--theme-text-muted)]">Liquid Glass Refraction</span>
+                  <span className="font-mono text-[11px] text-[var(--theme-accent)]">{liquidGlass ? 'ON' : 'OFF'}</span>
+                </button>
+
+                <div className="px-2.5 py-1.5">
+                  <div className="flex justify-between text-[11px] text-[var(--theme-text-muted)] mb-1">
+                    <span>Card Opacity</span>
+                    <span className="font-mono text-[var(--theme-accent)]">{Math.round(surfaceOpacity * 100)}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0.2"
+                    max="1.0"
+                    step="0.05"
+                    value={surfaceOpacity}
+                    onChange={(e) => setSurfaceOpacity(Number(e.target.value))}
+                    className="w-full accent-[var(--theme-accent)]"
+                  />
+                </div>
 
                 {theme === 'cute-hoshino' && (
                   <button

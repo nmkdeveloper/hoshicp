@@ -8,6 +8,10 @@ export interface ThemeContextValue {
   setTheme: (theme: ThemeName) => void;
   transparent: boolean;
   setTransparent: (transparent: boolean) => void;
+  surfaceOpacity: number;
+  setSurfaceOpacity: (opacity: number) => void;
+  liquidGlass: boolean;
+  setLiquidGlass: (enabled: boolean) => void;
   bgImage: string | null;
   setBgImage: (url: string | null) => void;
   bgBlur: number;
@@ -22,6 +26,8 @@ const ThemeContext = createContext<ThemeContextValue | undefined>(undefined);
 
 const STORAGE_KEY_THEME = 'hoshicp:theme';
 const STORAGE_KEY_TRANSPARENT = 'hoshicp:transparent';
+const STORAGE_KEY_SURFACE_OPACITY = 'hoshicp:surface_opacity';
+const STORAGE_KEY_LIQUID_GLASS = 'hoshicp:liquid_glass';
 const STORAGE_KEY_BG = 'hoshicp:bg_image';
 const STORAGE_KEY_BLUR = 'hoshicp:bg_blur';
 const STORAGE_KEY_OPACITY = 'hoshicp:bg_opacity';
@@ -91,6 +97,18 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
     return defaultTransparent;
   });
 
+  const [surfaceOpacity, setSurfaceOpacityState] = useState<number>(() => {
+    const saved = getStorageItem(STORAGE_KEY_SURFACE_OPACITY);
+    if (saved !== null) return Number(saved);
+    return 0.88;
+  });
+
+  const [liquidGlass, setLiquidGlassState] = useState<boolean>(() => {
+    const saved = getStorageItem(STORAGE_KEY_LIQUID_GLASS);
+    if (saved !== null) return saved === 'true';
+    return true;
+  });
+
   const [bgImage, setBgImageState] = useState<string | null>(() => {
     return getStorageItem(STORAGE_KEY_BG);
   });
@@ -123,6 +141,16 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
     setStorageItem(STORAGE_KEY_TRANSPARENT, String(val));
   };
 
+  const setSurfaceOpacity = (val: number) => {
+    setSurfaceOpacityState(val);
+    setStorageItem(STORAGE_KEY_SURFACE_OPACITY, String(val));
+  };
+
+  const setLiquidGlass = (val: boolean) => {
+    setLiquidGlassState(val);
+    setStorageItem(STORAGE_KEY_LIQUID_GLASS, String(val));
+  };
+
   const setBgImage = (url: string | null) => {
     setBgImageState(url);
     if (url) setStorageItem(STORAGE_KEY_BG, url);
@@ -148,8 +176,14 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
     if (typeof document !== 'undefined') {
       document.documentElement.setAttribute('data-theme', theme);
       document.documentElement.style.setProperty('--glass-blur', `${bgBlur}px`);
+      document.documentElement.style.setProperty('--surface-opacity', `${surfaceOpacity}`);
+      if (liquidGlass) {
+        document.documentElement.classList.add('liquid-glass-active');
+      } else {
+        document.documentElement.classList.remove('liquid-glass-active');
+      }
     }
-  }, [theme, bgBlur]);
+  }, [theme, bgBlur, surfaceOpacity, liquidGlass]);
 
   const value = useMemo(
     () => ({
@@ -157,6 +191,10 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
       setTheme,
       transparent,
       setTransparent,
+      surfaceOpacity,
+      setSurfaceOpacity,
+      liquidGlass,
+      setLiquidGlass,
       bgImage,
       setBgImage,
       bgBlur,
@@ -166,8 +204,10 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
       showMascot,
       setShowMascot,
     }),
-    [theme, transparent, bgImage, bgBlur, bgOpacity, showMascot]
+    [theme, transparent, surfaceOpacity, liquidGlass, bgImage, bgBlur, bgOpacity, showMascot]
   );
+
+  const isLight = theme === 'cute-hoshino' || theme === 'classic-light';
 
   return (
     <ThemeContext.Provider value={value}>
@@ -176,7 +216,9 @@ export const ThemeProvider: React.FC<ThemeProviderProps> = ({
         className="relative flex h-screen w-screen overflow-hidden text-[var(--theme-text)] transition-colors duration-150"
         style={{
           backgroundColor: transparent
-            ? (theme === 'classic-light' ? 'rgba(248, 250, 252, 0.96)' : 'rgba(22, 20, 31, 0.96)')
+            ? isLight
+              ? 'rgba(255, 245, 248, 0.96)'
+              : 'rgba(22, 20, 31, 0.96)'
             : 'var(--theme-bg)',
         }}
       >

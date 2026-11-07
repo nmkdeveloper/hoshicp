@@ -174,6 +174,10 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
     setTheme,
     transparent,
     setTransparent,
+    surfaceOpacity,
+    setSurfaceOpacity,
+    liquidGlass,
+    setLiquidGlass,
     bgImage,
     setBgImage,
     bgBlur,
@@ -1114,6 +1118,46 @@ export const SettingsModal: React.FC<SettingsModalProps> = ({
                       Enable Mica / Acrylic Transparent Glass Backdrop
                     </span>
                   </label>
+
+                  <label className="flex items-center space-x-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={liquidGlass}
+                      onChange={(e) => setLiquidGlass(e.target.checked)}
+                      className="rounded border-[var(--theme-border)] accent-[var(--theme-accent)]"
+                    />
+                    <div>
+                      <span className="font-medium text-[var(--theme-text)]">
+                        Enable Liquid Glass & Refraction Effect
+                      </span>
+                      <span className="text-[11px] text-[var(--theme-text-muted)] block">
+                        Adds fluid specular rim highlights, subtle refraction gradient, and saturated backdrop glow.
+                      </span>
+                    </div>
+                  </label>
+
+                  <div>
+                    <div className="flex justify-between text-[11px] mb-1 font-medium text-[var(--theme-text-muted)]">
+                      <span>UI Card Surface Opacity (Độ trong suốt)</span>
+                      <span className="font-mono text-[var(--theme-accent)] font-semibold">
+                        {Math.round(surfaceOpacity * 100)}%
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      min="0.2"
+                      max="1.0"
+                      step="0.02"
+                      value={surfaceOpacity}
+                      onChange={(e) => setSurfaceOpacity(Number(e.target.value))}
+                      className="w-full accent-[var(--theme-accent)]"
+                    />
+                    <div className="flex justify-between text-[10px] text-[var(--theme-text-muted)] font-mono mt-0.5">
+                      <span>20% (Ultra Clear)</span>
+                      <span>88% (Default Frosted)</span>
+                      <span>100% (Solid Opaque)</span>
+                    </div>
+                  </div>
 
                   {theme === 'cute-hoshino' && (
                     <label className="flex items-center space-x-2 cursor-pointer">

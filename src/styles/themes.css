@@ -2,25 +2,25 @@
 
 :root,
 [data-theme='cute-hoshino'] {
-  --theme-bg: #16141f;
-  --theme-surface: rgba(26, 23, 38, 0.78);
-  --theme-surface-hover: rgba(38, 34, 56, 0.85);
-  --theme-border: rgba(255, 182, 193, 0.22);
-  --theme-border-focus: rgba(255, 112, 160, 0.6);
-  --theme-text: #f8fafc;
-  --theme-text-muted: #94a3b8;
-  --theme-accent: #ff70a0;
-  --theme-accent-hover: #ff8ab2;
-  --theme-secondary: #70a1ff;
-  --theme-header-bg: rgba(22, 20, 31, 0.85);
-  --theme-tab-active: rgba(255, 182, 193, 0.16);
-  --theme-mascot-opacity: 0.14;
+  --theme-bg: #fff5f8;
+  --theme-surface: rgba(255, 255, 255, var(--surface-opacity, 0.88));
+  --theme-surface-hover: rgba(255, 240, 246, 0.95);
+  --theme-border: rgba(255, 160, 185, 0.38);
+  --theme-border-focus: rgba(255, 82, 140, 0.75);
+  --theme-text: #201a2c;
+  --theme-text-muted: #7c7289;
+  --theme-accent: #ff528c;
+  --theme-accent-hover: #ff3377;
+  --theme-secondary: #38bdf8;
+  --theme-header-bg: rgba(255, 255, 255, var(--surface-opacity, 0.92));
+  --theme-tab-active: rgba(255, 160, 185, 0.25);
+  --theme-mascot-opacity: 0.22;
 }
 
 [data-theme='classic-dark'] {
   --theme-bg: #1e1e1e;
-  --theme-surface: rgba(30, 30, 30, 0.85);
-  --theme-surface-hover: rgba(45, 45, 45, 0.9);
+  --theme-surface: rgba(30, 30, 30, var(--surface-opacity, 0.88));
+  --theme-surface-hover: rgba(45, 45, 45, 0.95);
   --theme-border: #333333;
   --theme-border-focus: #007acc;
   --theme-text: #d4d4d4;
@@ -28,14 +28,14 @@
   --theme-accent: #007acc;
   --theme-accent-hover: #1f8ad2;
   --theme-secondary: #4ec9b0;
-  --theme-header-bg: rgba(37, 37, 38, 0.9);
+  --theme-header-bg: rgba(37, 37, 38, var(--surface-opacity, 0.92));
   --theme-tab-active: rgba(255, 255, 255, 0.08);
   --theme-mascot-opacity: 0;
 }
 
 [data-theme='classic-light'] {
   --theme-bg: #f8fafc;
-  --theme-surface: rgba(255, 255, 255, 0.88);
+  --theme-surface: rgba(255, 255, 255, var(--surface-opacity, 0.88));
   --theme-surface-hover: rgba(241, 245, 249, 0.95);
   --theme-border: #e2e8f0;
   --theme-border-focus: #0066b8;
@@ -44,15 +44,15 @@
   --theme-accent: #0284c7;
   --theme-accent-hover: #0369a1;
   --theme-secondary: #059669;
-  --theme-header-bg: rgba(241, 245, 249, 0.92);
+  --theme-header-bg: rgba(241, 245, 249, var(--surface-opacity, 0.92));
   --theme-tab-active: rgba(0, 0, 0, 0.06);
   --theme-mascot-opacity: 0;
 }
 
 [data-theme='dracula'] {
   --theme-bg: #282a36;
-  --theme-surface: rgba(40, 42, 54, 0.85);
-  --theme-surface-hover: rgba(56, 59, 76, 0.9);
+  --theme-surface: rgba(40, 42, 54, var(--surface-opacity, 0.88));
+  --theme-surface-hover: rgba(56, 59, 76, 0.95);
   --theme-border: #44475a;
   --theme-border-focus: #bd93f9;
   --theme-text: #f8f8f2;
@@ -60,15 +60,15 @@
   --theme-accent: #bd93f9;
   --theme-accent-hover: #ff79c6;
   --theme-secondary: #50fa7b;
-  --theme-header-bg: rgba(33, 34, 44, 0.9);
+  --theme-header-bg: rgba(33, 34, 44, var(--surface-opacity, 0.92));
   --theme-tab-active: rgba(189, 147, 249, 0.15);
   --theme-mascot-opacity: 0;
 }
 
 [data-theme='one-dark'] {
   --theme-bg: #282c34;
-  --theme-surface: rgba(33, 37, 43, 0.85);
-  --theme-surface-hover: rgba(44, 49, 58, 0.9);
+  --theme-surface: rgba(33, 37, 43, var(--surface-opacity, 0.88));
+  --theme-surface-hover: rgba(44, 49, 58, 0.95);
   --theme-border: #3e4451;
   --theme-border-focus: #61afef;
   --theme-text: #abb2bf;
@@ -76,15 +76,15 @@
   --theme-accent: #61afef;
   --theme-accent-hover: #74b9ff;
   --theme-secondary: #98c379;
-  --theme-header-bg: rgba(33, 37, 43, 0.92);
+  --theme-header-bg: rgba(33, 37, 43, var(--surface-opacity, 0.92));
   --theme-tab-active: rgba(97, 175, 239, 0.15);
   --theme-mascot-opacity: 0;
 }
 
 [data-theme='catppuccin'] {
   --theme-bg: #1e1e2e;
-  --theme-surface: rgba(24, 24, 37, 0.85);
-  --theme-surface-hover: rgba(36, 36, 56, 0.9);
+  --theme-surface: rgba(24, 24, 37, var(--surface-opacity, 0.88));
+  --theme-surface-hover: rgba(36, 36, 56, 0.95);
   --theme-border: #313244;
   --theme-border-focus: #cba6f7;
   --theme-text: #cdd6f4;
@@ -92,7 +92,7 @@
   --theme-accent: #cba6f7;
   --theme-accent-hover: #f5c2e7;
   --theme-secondary: #89b4fa;
-  --theme-header-bg: rgba(24, 24, 37, 0.92);
+  --theme-header-bg: rgba(24, 24, 37, var(--surface-opacity, 0.92));
   --theme-tab-active: rgba(203, 166, 247, 0.15);
   --theme-mascot-opacity: 0;
 }
@@ -118,7 +118,45 @@
   background-repeat: no-repeat;
   background-position: right 16px bottom 16px;
   background-size: 260px;
-  opacity: var(--theme-mascot-opacity, 0.14);
+  opacity: var(--theme-mascot-opacity, 0.22);
+}
+
+/* Liquid Glass Refraction & Specular Highlights */
+.liquid-glass-active .glass-header,
+.liquid-glass-active .rounded-2xl {
+  backdrop-filter: blur(calc(var(--glass-blur, 16px) * 1.35)) saturate(180%) contrast(102%) brightness(103%);
+  -webkit-backdrop-filter: blur(calc(var(--glass-blur, 16px) * 1.35)) saturate(180%) contrast(102%) brightness(103%);
+}
+
+.liquid-glass-active[data-theme='cute-hoshino'] .glass-header,
+.liquid-glass-active[data-theme='cute-hoshino'] .rounded-2xl,
+.liquid-glass-active[data-theme='classic-light'] .glass-header,
+.liquid-glass-active[data-theme='classic-light'] .rounded-2xl {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, calc(var(--surface-opacity, 0.88) * 1.05)) 0%,
+    rgba(255, 242, 247, calc(var(--surface-opacity, 0.88) * 0.95)) 100%
+  ) !important;
+  box-shadow:
+    0 10px 30px -5px rgba(255, 112, 160, 0.16),
+    0 4px 12px 0 rgba(0, 0, 0, 0.04),
+    inset 0 1px 1.5px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 1px 0 rgba(255, 182, 193, 0.35);
+  border: 1px solid rgba(255, 160, 185, 0.45) !important;
+}
+
+.liquid-glass-active:not([data-theme='cute-hoshino']):not([data-theme='classic-light']) .glass-header,
+.liquid-glass-active:not([data-theme='cute-hoshino']):not([data-theme='classic-light']) .rounded-2xl {
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(0, 0, 0, 0.15) 100%
+  ), var(--theme-surface) !important;
+  box-shadow:
+    0 12px 36px 0 rgba(0, 0, 0, 0.4),
+    inset 0 1px 1px 0 rgba(255, 255, 255, 0.2),
+    inset 0 -1px 1px 0 rgba(0, 0, 0, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
 }
 
 /* CodeMirror 6 Full Height */

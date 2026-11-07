@@ -15,6 +15,7 @@ export interface ThemeOptions {
   transparent?: boolean;
   fontSize?: number;
   fontFamily?: string;
+  surfaceOpacity?: number;
 }
 
 interface ThemeDefinition {
@@ -33,27 +34,27 @@ interface ThemeDefinition {
 
 const THEME_SPECS: Record<ThemeName, ThemeDefinition> = {
   'cute-hoshino': {
-    dark: true,
-    background: '#16141f',
-    foreground: '#f1f5f9',
-    caret: '#ff70a0',
-    selection: 'rgba(112, 161, 255, 0.3)',
-    activeLine: 'rgba(255, 182, 193, 0.08)',
-    gutterBackground: 'rgba(18, 16, 26, 0.85)',
-    gutterForeground: 'rgba(255, 182, 193, 0.5)',
-    gutterActiveForeground: '#ffb6c1',
-    border: 'rgba(255, 182, 193, 0.2)',
+    dark: false,
+    background: '#fffbfd',
+    foreground: '#231e32',
+    caret: '#ff3377',
+    selection: 'rgba(255, 112, 160, 0.28)',
+    activeLine: 'rgba(255, 182, 193, 0.2)',
+    gutterBackground: 'rgba(255, 245, 249, 0.92)',
+    gutterForeground: '#9d7c92',
+    gutterActiveForeground: '#ff2d78',
+    border: 'rgba(255, 182, 193, 0.35)',
     styles: [
-      { tag: t.keyword, color: '#ff79c6', fontStyle: 'bold' },
-      { tag: [t.definitionKeyword, t.moduleKeyword, t.controlKeyword], color: '#ff70a0' },
-      { tag: [t.name, t.deleted, t.character, t.macroName], color: '#f1f5f9' },
-      { tag: [t.function(t.variableName), t.function(t.propertyName)], color: '#70a1ff' },
-      { tag: [t.typeName, t.className, t.namespace], color: '#c084fc' },
-      { tag: [t.string, t.special(t.string)], color: '#a7f3d0' },
-      { tag: [t.number, t.integer, t.float, t.bool, t.atom], color: '#fca5a5' },
-      { tag: [t.comment, t.lineComment, t.blockComment, t.docComment], color: '#94a3b8', fontStyle: 'italic' },
-      { tag: [t.operator, t.punctuation, t.bracket], color: '#70a1ff' },
-      { tag: [t.variableName, t.attributeName], color: '#e2e8f0' },
+      { tag: t.keyword, color: '#e11d48', fontStyle: 'bold' },
+      { tag: [t.definitionKeyword, t.moduleKeyword, t.controlKeyword], color: '#d91b5c', fontStyle: 'bold' },
+      { tag: [t.name, t.deleted, t.character, t.macroName], color: '#231e32' },
+      { tag: [t.function(t.variableName), t.function(t.propertyName)], color: '#2563eb' },
+      { tag: [t.typeName, t.className, t.namespace], color: '#7c3aed' },
+      { tag: [t.string, t.special(t.string)], color: '#059669' },
+      { tag: [t.number, t.integer, t.float, t.bool, t.atom], color: '#d97706' },
+      { tag: [t.comment, t.lineComment, t.blockComment, t.docComment], color: '#78716c', fontStyle: 'italic' },
+      { tag: [t.operator, t.punctuation, t.bracket], color: '#0284c7' },
+      { tag: [t.variableName, t.attributeName], color: '#475569' },
     ],
   },
   'classic-dark': {
@@ -184,7 +185,9 @@ export function getThemeExtensions(
         maxHeight: '100% !important',
         color: spec.foreground,
         backgroundColor: isTransparent
-          ? (spec.dark ? 'rgba(22, 20, 31, 0.78) !important' : 'rgba(255, 255, 255, 0.85) !important')
+          ? (spec.dark
+              ? `rgba(22, 20, 31, ${options.surfaceOpacity ?? 0.88}) !important`
+              : `rgba(255, 255, 255, ${options.surfaceOpacity ?? 0.92}) !important`)
           : spec.background,
         fontSize: options.fontSize ? `${options.fontSize}px` : '14px',
         fontFamily: options.fontFamily || "'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, monospace",
@@ -208,7 +211,9 @@ export function getThemeExtensions(
       },
       '.cm-gutters': {
         backgroundColor: isTransparent
-          ? (spec.dark ? 'rgba(18, 16, 26, 0.88) !important' : 'rgba(245, 245, 248, 0.92) !important')
+          ? (spec.dark
+              ? `rgba(18, 16, 26, ${Math.min((options.surfaceOpacity ?? 0.88) * 1.05, 0.98)}) !important`
+              : `rgba(255, 245, 249, ${Math.min((options.surfaceOpacity ?? 0.92) * 1.05, 0.98)}) !important`)
           : spec.gutterBackground,
         color: spec.gutterForeground,
         borderRight: isTransparent

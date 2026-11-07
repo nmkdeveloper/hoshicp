@@ -79,7 +79,7 @@ export const AppShell: React.FC<AppShellProps> = ({
   onFileSave,
   settings: settingsProp,
 }) => {
-  const { theme, transparent } = useTheme();
+  const { theme, transparent, surfaceOpacity, liquidGlass } = useTheme();
   const settings = settingsProp ?? loadStoredSettings();
 
   // Problem management state
@@ -859,6 +859,7 @@ export const AppShell: React.FC<AppShellProps> = ({
               language={activeProblem.language}
               theme={theme}
               transparent={transparent}
+              surfaceOpacity={surfaceOpacity}
               lspPort={lspPort}
               tabSize={settings.tabSize}
               indentWithSpaces={settings.indentWithSpaces}
