@@ -44,7 +44,7 @@ export const TestCaseList: React.FC<TestCaseListProps> = ({
   );
 
   return (
-    <div className={`flex h-full flex-col bg-[var(--theme-surface)] text-[var(--theme-text)] border-l border-[var(--theme-border)] ${className}`}>
+    <div className={`flex h-full flex-col bg-[var(--theme-surface)] text-[var(--theme-text)] ${className}`}>
       {/* Testcases Header */}
       <div className="flex items-center justify-between border-b border-[var(--theme-border)] px-4 py-2.5 bg-black/20">
         <div className="flex items-center space-x-2">

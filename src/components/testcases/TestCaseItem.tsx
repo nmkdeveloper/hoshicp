@@ -120,7 +120,7 @@ export const TestCaseItem: React.FC<TestCaseItemProps> = ({
   };
 
   return (
-    <div className="rounded-lg border border-[var(--theme-border)] bg-black/20 overflow-hidden text-xs transition-colors hover:border-[var(--theme-border-focus)]">
+    <div className="rounded-xl border border-[var(--theme-border)] bg-black/25 shadow-sm overflow-hidden text-xs transition-all hover:border-[var(--theme-accent)]/60 hover:shadow-md">
       {/* Header bar */}
       <div
         className="flex items-center justify-between px-3 py-2 bg-black/30 cursor-pointer select-none"

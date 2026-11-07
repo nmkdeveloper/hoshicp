@@ -139,7 +139,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
     <header
       data-tauri-drag-region
       onMouseDown={handleHeaderMouseDown}
-      className="glass-header flex h-12 w-full select-none items-center justify-between border-b border-[var(--theme-border)] px-3 text-[var(--theme-text)] z-30"
+      className="glass-header flex h-12 w-full select-none items-center justify-between rounded-2xl border border-[var(--theme-border)] px-3 text-[var(--theme-text)] z-30 shadow-md backdrop-blur-md"
     >
       {/* Left: App Logo & Mascot Icon + Multi-tab Workspace */}
       <div className="flex items-center space-x-3 overflow-hidden">
@@ -154,17 +154,17 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
         </div>
 
         {/* Problem Tabs */}
-        <div className="flex items-center space-x-1 overflow-x-auto scrollbar-none py-1">
+        <div className="flex items-center space-x-1.5 overflow-x-auto scrollbar-none py-1">
           {problems.map((p) => {
             const isActive = p.id === activeProblemId;
             return (
               <div
                 key={p.id}
                 onClick={() => onSelectProblem(p.id)}
-                className={`group flex items-center space-x-2 rounded-t-md px-3 py-1.5 text-xs font-medium cursor-pointer transition-colors border-b-2 ${
+                className={`group flex items-center space-x-2 rounded-xl px-3 py-1.5 text-xs font-medium cursor-pointer transition-all border ${
                   isActive
-                    ? 'border-[var(--theme-accent)] bg-[var(--theme-tab-active)] text-[var(--theme-text)]'
-                    : 'border-transparent text-[var(--theme-text-muted)] hover:bg-white/5 hover:text-[var(--theme-text)]'
+                    ? 'border-[var(--theme-accent)]/60 bg-[var(--theme-tab-active)] text-[var(--theme-text)] shadow-sm'
+                    : 'border-white/5 bg-white/5 text-[var(--theme-text-muted)] hover:bg-white/10 hover:text-[var(--theme-text)]'
                 }`}
                 title={p.name}
               >
@@ -191,7 +191,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           <button
             type="button"
             onClick={onNewProblem}
-            className="flex items-center rounded p-1.5 text-[var(--theme-text-muted)] hover:bg-white/10 hover:text-[var(--theme-text)] transition-colors"
+            className="flex items-center rounded-xl border border-white/5 bg-white/5 p-1.5 text-[var(--theme-text-muted)] hover:bg-white/10 hover:text-[var(--theme-text)] transition-colors"
             title="New Problem Tab"
           >
             <Plus className="h-3.5 w-3.5" />
@@ -201,8 +201,8 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
 
       {/* Center / Right: Primary Actions & Settings & Window Controls */}
       <div className="flex items-center space-x-2 shrink-0">
-        {/* Primary Action Buttons */}
-        <div className="flex items-center space-x-1.5 border-r border-[var(--theme-border)] pr-2">
+        {/* Primary Action Buttons Card */}
+        <div className="flex items-center space-x-1 rounded-xl p-1 bg-black/25 border border-[var(--theme-border)]/50 shadow-sm">
           {/* Compile & Run */}
           <button
             type="button"
@@ -283,16 +283,18 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           )}
         </div>
 
-        {/* Theme Selector Popover */}
-        <div className="relative" ref={themeDropdownRef}>
-          <button
-            type="button"
-            onClick={() => setThemeDropdownOpen(!themeDropdownOpen)}
-            className="flex items-center rounded-lg p-1.5 text-[var(--theme-text-muted)] hover:bg-white/10 hover:text-[var(--theme-text)] transition-colors"
-            title="Theme & Mica Options"
-          >
-            <Palette className="h-4 w-4" />
-          </button>
+        {/* Secondary Controls Card: Theme, Settings, Window buttons */}
+        <div className="flex items-center space-x-0.5 rounded-xl p-1 bg-black/25 border border-[var(--theme-border)]/50 shadow-sm">
+          {/* Theme Selector Popover */}
+          <div className="relative" ref={themeDropdownRef}>
+            <button
+              type="button"
+              onClick={() => setThemeDropdownOpen(!themeDropdownOpen)}
+              className="flex items-center rounded-lg p-1.5 text-[var(--theme-text-muted)] hover:bg-white/10 hover:text-[var(--theme-text)] transition-colors"
+              title="Theme & Mica Options"
+            >
+              <Palette className="h-4 w-4" />
+            </button>
 
           {themeDropdownOpen && (
             <div className="absolute right-0 top-full mt-2 w-56 rounded-xl border border-[var(--theme-border)] bg-[var(--theme-surface)] p-2 shadow-2xl backdrop-blur-xl z-50 animate-in fade-in zoom-in-95 duration-100">
@@ -394,6 +396,7 @@ export const HeaderBar: React.FC<HeaderBarProps> = ({
           >
             <X className="h-3.5 w-3.5" />
           </button>
+        </div>
         </div>
       </div>
     </header>

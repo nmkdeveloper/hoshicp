@@ -825,9 +825,9 @@ export const AppShell: React.FC<AppShellProps> = ({
         e.stopPropagation();
       }}
       onDrop={handleFileDrop}
-      className="flex h-screen w-screen flex-col overflow-hidden select-none"
+      className="flex h-screen w-screen flex-col overflow-hidden select-none p-2 gap-2"
     >
-      {/* Top Header Bar */}
+      {/* Top Header Card */}
       <HeaderBar
         problems={problems}
         activeProblemId={activeProblemId}
@@ -847,11 +847,11 @@ export const AppShell: React.FC<AppShellProps> = ({
       />
 
       {/* Main Workspace Area */}
-      <div className="relative flex flex-1 overflow-hidden">
-        {/* Left Side: Code Editor & Bottom Console Drawer */}
-        <div className="flex flex-1 flex-col overflow-hidden min-w-0">
+      <div className="relative flex flex-1 overflow-hidden gap-2">
+        {/* Left Card: Code Editor & Bottom Console Drawer */}
+        <div className="flex flex-1 flex-col overflow-hidden min-w-0 rounded-2xl border border-[var(--theme-border)] bg-[var(--theme-surface)] shadow-md backdrop-blur-md">
           {/* Editor Container */}
-          <div className="relative flex-1 overflow-hidden backdrop-blur-md">
+          <div className="relative flex-1 overflow-hidden">
             <CodeEditor
               key={activeProblem.id}
               value={activeProblem.code}
@@ -977,9 +977,9 @@ export const AppShell: React.FC<AppShellProps> = ({
           />
         )}
 
-        {/* Right Side: TestCase Manager */}
+        {/* Right Card: TestCase Manager */}
         <div
-          className="relative flex flex-col shrink-0 transition-all duration-75 overflow-hidden"
+          className="relative flex flex-col shrink-0 transition-all duration-75 overflow-hidden rounded-2xl border border-[var(--theme-border)] bg-[var(--theme-surface)] shadow-md backdrop-blur-md"
           style={{ width: isRightPaneCollapsed ? '0px' : `${rightPaneWidth}px` }}
         >
           {!isRightPaneCollapsed && (
@@ -1005,7 +1005,7 @@ export const AppShell: React.FC<AppShellProps> = ({
         <button
           type="button"
           onClick={() => setIsRightPaneCollapsed(!isRightPaneCollapsed)}
-          className="absolute right-2 top-2 z-30 rounded-md border border-[var(--theme-border)] bg-[var(--theme-surface)] p-1 text-[var(--theme-text-muted)] shadow hover:bg-white/10 hover:text-[var(--theme-text)] transition-colors"
+          className="absolute right-4 top-4 z-30 rounded-xl border border-[var(--theme-border)] bg-[var(--theme-surface)] p-1.5 text-[var(--theme-text-muted)] shadow-md hover:bg-white/10 hover:text-[var(--theme-text)] transition-all"
           title={isRightPaneCollapsed ? 'Show testcases panel' : 'Collapse testcases panel'}
         >
           {isRightPaneCollapsed ? (
